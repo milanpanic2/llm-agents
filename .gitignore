@@ -1,4 +1,4 @@
-# Python-generated files
+# Python
 __pycache__/
 *.py[oc]
 build/
@@ -8,3 +8,17 @@ wheels/
 
 # Virtual environments
 .venv
+
+# IDE
+.idea
+.vscode
+
+# OS
+.DS_Store
+
+# Environment
+.env
+.env.*
+
+# Results / data
+results/
