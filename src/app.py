@@ -46,6 +46,11 @@ app = FastAPI(
 app.include_router(router)
 
 
+@app.get("/api/v1/health", tags=["health"])
+async def health():
+    return {"status": "ok"}
+
+
 @app.exception_handler(AppError)
 async def handle_app_error(request: Request, exc: AppError):
     logger.error("code=%s path=%s detail=%s", exc.code, request.url.path, exc.detail, exc_info=exc)
