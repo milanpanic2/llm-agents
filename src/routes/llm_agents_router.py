@@ -1,10 +1,11 @@
 import logging
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from pydantic import BaseModel
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 from pydantic_ai.models.openai import OpenAIChatModel
+from typing import Annotated
 
 from src.agents import web_search_services
 from src.clients.crw_client import CrwClient
@@ -64,7 +65,7 @@ async def enhance_prompt_with_search(
 
 @router.post("/image-text-to-text", response_model=list[Transcription])
 async def image_text_to_text(
-    files: list[UploadFile],
+    files: Annotated[list[UploadFile], File(description="JPEG images to transcribe")],
     model: OpenAIChatModel = Depends(get_llm_model),
 ) -> list[Transcription]:
 
