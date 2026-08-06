@@ -1,8 +1,8 @@
 import logging
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile as UF, File
+from pydantic import BaseModel, WithJsonSchema
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 from pydantic_ai.models.openai import OpenAIChatModel
 from typing import Annotated
@@ -63,9 +63,11 @@ async def enhance_prompt_with_search(
     return CrawlResponse(result=result)
 
 
+UploadFile = Annotated[UF, WithJsonSchema({"type": "string", "format": "binary"})] #todo, remove when swagger fixes files array
+
 @router.post("/image-text-to-text", response_model=list[Transcription])
 async def image_text_to_text(
-    files: Annotated[list[UploadFile], File(description="JPEG images to transcribe")],
+    files: list[UploadFile] = File(...),
     model: OpenAIChatModel = Depends(get_llm_model),
 ) -> list[Transcription]:
 
