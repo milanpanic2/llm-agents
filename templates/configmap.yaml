@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Chart.Name }}
+data:
+  APP_HOST: {{ .Values.config.appHost | quote }}
+  APP_PORT: {{ .Values.config.appPort | quote }}
+  DEBUG: {{ .Values.config.debug | quote }}
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  JWT_ALGORITHM: {{ .Values.config.jwtAlgorithm | quote }}
+  JWT_EXPIRATION_MINUTES: {{ .Values.config.jwtExpirationMinutes | quote }}
+  POSTGRESQL_HOST: {{ .Values.database.host | quote }}
+  POSTGRESQL_PORT: {{ .Values.database.port | quote }}
+  POSTGRESQL_DB_NAME: {{ .Values.database.name | quote }}
+  OTEL_ENDPOINT: {{ .Values.config.otelEndpoint | quote }}
+  CRW_BASE: {{ .Values.config.crwBase | quote }}
+  LLM_BASE_URL: {{ .Values.config.llmBaseUrl | quote }}
+  LLM_MODEL: {{ .Values.config.llmModel | quote }}
+  LLM_API_KEY: {{ .Values.config.llmApiKey | quote }}

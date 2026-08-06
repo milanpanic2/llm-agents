@@ -1,0 +1,63 @@
+replicaCount: 1
+
+image:
+  registry: ghcr.io/milanpanic2
+  name: llm-agents
+  tag: main
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  host: llm-agents.homelab.com
+  annotations:
+    cert-manager.io/cluster-issuer: homelab-ca-issuer
+
+config:
+  appHost: "0.0.0.0"
+  appPort: "8000"
+  debug: "false"
+  environment: "default"
+  jwtAlgorithm: "HS256"
+  jwtExpirationMinutes: "1440"
+  otelEndpoint: "http://alloy.monitoring.svc.cluster.local:4317"
+  crwBase: "http://crw.crw.svc.cluster.local:3000"
+  llmBaseUrl: "http://llama-server.llama-server.svc.cluster.local:8090"
+  llmModel: "./Qwen3.6-35B-A3B-UD-IQ4_NL.gguf"
+  llmApiKey: "local"
+
+database:
+  host: "postgresql"
+  port: "5432"
+  name: "llm-agents"
+  secretName: "cluster-secret"
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "50m"
+  limits:
+    memory: "128Mi"
+    cpu: "250m"
+
+probes:
+  liveness:
+    httpGet:
+      path: /api/v1/health
+      port: 8000
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    failureThreshold: 3
+  readiness:
+    httpGet:
+      path: /api/v1/health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+middleware:
+  enabled: true

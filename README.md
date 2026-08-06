@@ -1,0 +1,1 @@
+add CRW_BASE as env variable in kubernetes config map - TODO !important

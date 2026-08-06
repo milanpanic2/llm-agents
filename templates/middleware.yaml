@@ -1,0 +1,19 @@
+{{- if .Values.middleware.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ .Chart.Name }}-verify
+  namespace: {{ .Release.Namespace }}
+spec:
+  forwardAuth:
+    address: http://{{ .Chart.Name }}.{{ .Release.Namespace }}.svc.cluster.local/api/v1/verify
+    trustForwardHeader: true
+    authResponseHeaders:
+    - X-User-Id
+    - X-Username
+    - X-Email
+{{- end }}
+# ForwardAuth via auth service:
+# requires valid JWT to access to all services that add following annotation.
+# Format: <namespace>-<middleware-name>@kubernetescrd
+# traefik.ingress.kubernetes.io/router.middlewares: apps-auth-verify@kubernetescrd
