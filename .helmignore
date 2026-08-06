@@ -1,0 +1,16 @@
+# Patterns to ignore when building/loading the Helm chart.
+# The chart shares the repo root with the Python app, so exclude app code.
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.py
+*.pyc
+*.ipynb
+.ipynb_checkpoints/
+src/
+test-images/
+Dockerfile
+*.md
+.gitignore

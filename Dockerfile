@@ -9,4 +9,4 @@ RUN uv sync --no-dev --no-install-project
 # COPY db_migrations/ db_migrations/
 COPY src/ src/
 
-CMD ["uv", "run", "python", "main.py"]
+CMD ["/app/.venv/bin/python", "main.py"]
