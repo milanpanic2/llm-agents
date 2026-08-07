@@ -2,6 +2,7 @@ import logging
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile as UF, File
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, WithJsonSchema
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -76,3 +77,17 @@ async def image_text_to_text(
     if not results:
         raise HTTPException(status_code=400, detail="No .jpg images found in upload")
     return results
+
+
+@router.post("/image-text-to-text/plain", response_class=PlainTextResponse)
+async def image_text_to_text_plain(
+    files: list[UploadFile] = File(...),
+    model: OpenAIChatModel = Depends(get_llm_model),
+) -> str:
+
+    results = await text_image_to_image_services.transcribe_uploads(files, model)
+
+    if not results:
+        raise HTTPException(status_code=400, detail="No .jpg images found in upload")
+
+    return "\n\n".join(f"=== {t.filename} ===\n{t.text}" for t in results)

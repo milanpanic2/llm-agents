@@ -35,6 +35,8 @@ async def convert_to_text(image_bytes: bytes, model: Model, media_type: str = "i
          BinaryContent(data=image_bytes, media_type=media_type)],
         model=model,
     )
+
+
     return result.output
 
 
