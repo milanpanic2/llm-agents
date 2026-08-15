@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 import zipfile
 from collections.abc import AsyncIterator
 
@@ -10,6 +11,8 @@ from pydantic_ai.models import Model
 _ZIP_SUFIX = (".zip",)
 
 _JPG_SUFFIXES = (".jpg", ".jpeg")
+
+_CONCURRENCY = 2
 
 
 class Transcription(BaseModel):
@@ -29,7 +32,7 @@ image_text_to_text_agent = Agent(
     output_type=str,
 )
 
-async def convert_to_text(image_bytes: bytes, model: Model, media_type: str = "image/jpeg") -> str:
+async def convert_to_text(model: Model, image_bytes: bytes, media_type: str) -> str:
     result = await image_text_to_text_agent.run(
         ["Transcribe the text in this image.",
          BinaryContent(data=image_bytes, media_type=media_type)],
@@ -42,13 +45,28 @@ async def convert_to_text(image_bytes: bytes, model: Model, media_type: str = "i
 
 async def transcribe_uploads(files: list[UploadFile], model: Model) -> list[Transcription]:
     """Expand any zips, transcribe each image one at a time, return results in order."""
-    results: list[Transcription] = []
-    async for name, image_bytes in _iter_images(files):
-        text = await convert_to_text(image_bytes, model)
-        if not text or len(text) == 0:
-            continue
-        results.append(Transcription(filename=name, text=text))
-    return results
+    sem = asyncio.Semaphore(_CONCURRENCY)
+
+    async def worker(_filename, _image_bytes, _media_type) -> Transcription | None:
+        try:
+            _text = await convert_to_text(model, _image_bytes, _media_type)
+
+            return Transcription(filename=_filename, text=_text)
+        finally:
+            sem.release()
+
+    tasks = []
+    workflow_id = uuid.uuid4()
+
+    async for filename, image_bytes in _iter_images(files):
+        await sem.acquire()
+        media_type = "image/jpeg"  # TODO
+        tasks.append(asyncio.create_task(worker(filename, image_bytes, media_type)))
+
+    results = await asyncio.gather(*tasks)
+
+    return [r for r in results]
+
 
 
 async def _iter_images(upload_files: list[UploadFile]) -> AsyncIterator[tuple[str, bytes]]:
