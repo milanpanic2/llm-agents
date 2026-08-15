@@ -90,4 +90,4 @@ async def image_text_to_text_plain(
     if not results:
         raise HTTPException(status_code=400, detail="No .jpg images found in upload")
 
-    return "\n\n".join(f"=== {t.filename} ===\n{t.text}" for t in results)
+    return "\n\n".join(f"=== {r.filename} ===\n{r.text}" for r in results)

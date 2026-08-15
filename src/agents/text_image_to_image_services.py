@@ -1,6 +1,6 @@
 import asyncio
 import zipfile
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from fastapi import UploadFile
 from pydantic import BaseModel
