@@ -29,6 +29,7 @@ config:
   llmBaseUrl: "http://llama-server.llama-server.svc.cluster.local:8090"
   llmModel: "./Qwen3.6-35B-A3B-UD-IQ4_NL.gguf"
   llmApiKey: "local"
+  valkeyServiceUrl: "valkey.valkey.svc.cluster.local
 
 database:
   host: "postgresql"

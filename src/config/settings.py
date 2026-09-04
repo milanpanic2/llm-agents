@@ -20,14 +20,20 @@ class Settings(BaseSettings):
     otel_endpoint: str = "http://localhost:4317"
     crw_base: str = "http://localhost:3000"
 
+    # rediss://default:<password>@<XXXXXX>.stackhero-network.com:<PORT_TLS>
+
     # local llama-server (OpenAI-compatible)
     llm_base_url: str = "http://localhost:8090/v1"
     llm_model: str = "./Qwen3.6-35B-A3B-UD-IQ4_NL.gguf"
     llm_api_key: str = "local"
 
+    valkey_service_host: str = "http://localhost"
+    valkey_service_port: str = "6379"
+
     @property
     def database_url(self) -> str:
         return f"{self.postgresql_user}:{self.postgresql_password}@{self.postgresql_host}:{self.postgresql_port}/{self.postgresql_db_name}"
+
 
 
 settings = Settings()

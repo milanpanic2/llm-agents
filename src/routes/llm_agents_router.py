@@ -1,18 +1,23 @@
 import logging
 
 import httpx
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile as UF, File
 from fastapi.responses import PlainTextResponse
+from glide import GlideClient
 from pydantic import BaseModel, WithJsonSchema
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 from pydantic_ai.models.openai import OpenAIChatModel
 from typing import Annotated
+
+from starlette.responses import StreamingResponse
 
 from src.agents import web_search_services
 from src.clients.crw_client import CrwClient
 from src.agents.web_crawler_agent import WebCrawlerAgent
 from src.agents import text_image_to_image_services
 from src.agents.text_image_to_image_services import Transcription
+from src.config import settings
 
 router = APIRouter(prefix="/llm-agents/v1", tags=["llm-agents"])
 
@@ -66,17 +71,37 @@ async def enhance_prompt_with_search(
 
 UploadFile = Annotated[UF, WithJsonSchema({"type": "string", "format": "binary"})] #todo, remove when swagger fixes files array
 
-@router.post("/image-text-to-text", response_model=list[Transcription])
+async def get_user_id(request: Request) -> str:
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        raise HTTPException(401, "Missing token")
+    try:
+        payload = jwt.decode(auth[7:], settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(401, "Token expired") from None
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, "Invalid token") from None
+    return payload["sub"]
+
+
+def get_valkey_client(request: Request) -> GlideClient:
+    return request.app.state.valkey_client
+
+
+@router.post("/image-text-to-text/zip", response_model=list[Transcription])
 async def image_text_to_text(
-    files: list[UploadFile] = File(...),
+    zipfile: UploadFile,
     model: OpenAIChatModel = Depends(get_llm_model),
-) -> list[Transcription]:
+    valkey_client = Depends(get_valkey_client),
+    user_id: str = Depends(get_user_id)
+) -> StreamingResponse:
 
-    results = await text_image_to_image_services.transcribe_uploads(files, model)
 
-    if not results:
-        raise HTTPException(status_code=400, detail="No .jpg images found in upload")
-    return results
+    async def stream_results():
+        async for zf in await text_image_to_image_services.transcribe_uploads_from_zip(zipfile, model, valkey_client, user_id):
+            yield zf
+
+    return StreamingResponse(stream_results(), media_type="application/x-ndjson")
 
 
 @router.post("/image-text-to-text/plain", response_class=PlainTextResponse)

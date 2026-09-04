@@ -3,9 +3,11 @@ from contextlib import asynccontextmanager, AsyncExitStack
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from glide_shared.config import BaseClientConfiguration
 from starlette.requests import Request
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from glide import GlideClient, NodeAddress
 
 from src.clients.crw_client import CrwClient
 from src.config import settings
@@ -32,6 +34,13 @@ async def lifespan(app: FastAPI):
         crw_client = CrwClient()
         stack.push_async_callback(crw_client.aclose)
         app.state.crw_client = crw_client
+
+        valkey_client = GlideClient(BaseClientConfiguration([NodeAddress(
+            host=settings.valkey_service_host,
+            port=settings.valkey_service_port)]
+        ))
+        stack.push_async_callback(valkey_client.aclose)
+        app.state.valkey_client = valkey_client
 
         # web_crawler_agent = WebCrawlerAgent()
         # stack.push_async_callback(web_crawler_agent.aclose)

@@ -20,3 +20,4 @@ data:
   LLM_BASE_URL: {{ .Values.config.llmBaseUrl | quote }}
   LLM_MODEL: {{ .Values.config.llmModel | quote }}
   LLM_API_KEY: {{ .Values.config.llmApiKey | quote }}
+  VALKE_SERVICE_URL: {{ .Values.config.valkeyServiceUrl | quote }}
