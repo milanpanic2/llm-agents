@@ -8,13 +8,19 @@ from starlette.requests import Request
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from glide import GlideClient, NodeAddress
+from minio import Minio
 
+from src.agents.text_image_to_image_services import TASK_TRANSCRIPTION
 from src.clients.crw_client import CrwClient
 from src.config import settings
 from src.config.telemetry import init_telemetry
 from src.database.connection import init_db, sync_engine
 from src.errors import AppError
+from src.garage.garage_client import init_garage_client
 from src.routes import router
+from src.streams.StreamConsumer import StreamConsumer
+
+from src.tasks.brokers import transcriptions_broker
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +47,14 @@ async def lifespan(app: FastAPI):
         ))
         stack.push_async_callback(valkey_client.aclose)
         app.state.valkey_client = valkey_client
+
+        garage_client = init_garage_client()
+        app.state.garage_client = garage_client
+
+        if not transcriptions_broker.is_worker_process:
+            await transcriptions_broker.startup()
+            stack.push_async_callback(transcriptions_broker.shutdown)
+
 
         # web_crawler_agent = WebCrawlerAgent()
         # stack.push_async_callback(web_crawler_agent.aclose)

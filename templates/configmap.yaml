@@ -8,8 +8,10 @@ metadata:
 data:
   APP_HOST: {{ .Values.config.appHost | quote }}
   APP_PORT: {{ .Values.config.appPort | quote }}
+  PUBLIC_BASE_URL: {{ printf "https://%s" .Values.ingress.host | quote }}
   DEBUG: {{ .Values.config.debug | quote }}
   ENVIRONMENT: {{ .Values.config.environment | quote }}
+  MAX_CONCURRENT_TRANSCRIPTIONS: {{ .Values.config.max_concurrent_transcriptions | quote }}
   JWT_ALGORITHM: {{ .Values.config.jwtAlgorithm | quote }}
   JWT_EXPIRATION_MINUTES: {{ .Values.config.jwtExpirationMinutes | quote }}
   POSTGRESQL_HOST: {{ .Values.database.host | quote }}
@@ -21,3 +23,7 @@ data:
   LLM_MODEL: {{ .Values.config.llmModel | quote }}
   LLM_API_KEY: {{ .Values.config.llmApiKey | quote }}
   VALKE_SERVICE_URL: {{ .Values.config.valkeyServiceUrl | quote }}
+  VALKEY_SERVICE_PORT: {{ .Values.config.valkeyServicePort | quote }}
+  GARAGE_ENDPOINT: {{ .Values.config.garageEndpoint | quote }}
+  GARAGE_ACCESS_KEY: {{ .Values.config.garageAccessKey | quote }}
+  GARAGE_SECRET_KEY: {{ .Values.config.garageSecretKey | quote }}
