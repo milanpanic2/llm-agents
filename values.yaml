@@ -1,4 +1,4 @@
-replicaCount: 1
+replicaCount: 2
 
 image:
   registry: ghcr.io/milanpanic2
@@ -22,6 +22,7 @@ config:
   appPort: "8000"
   debug: "false"
   environment: "default"
+  maxConcurrentTranscriptions: 2
   jwtAlgorithm: "HS256"
   jwtExpirationMinutes: "1440"
   otelEndpoint: "http://alloy.monitoring.svc.cluster.local:4317"
@@ -29,6 +30,11 @@ config:
   llmBaseUrl: "http://llama-server.llama-server.svc.cluster.local:8090"
   llmModel: "./Qwen3.6-35B-A3B-UD-IQ4_NL.gguf"
   llmApiKey: "local"
+  valkeyServiceUrl: "valkey.valkey.svc.cluster.local"
+  valkeyServicePort: "6379"
+  garageEndpoint: "garage.garage.svc.cluster.local"
+  garageAccessKey: "GK87197f668e14d94fe448c84a"
+  garageSecretKey: "8605e7350f071d3b49f3f4610c11f5f05c99cc2a623c18d81421df749a816d87"
 
 database:
   host: "postgresql"

@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime
 
-from pydantic import EmailStr
 from sqlalchemy import DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
