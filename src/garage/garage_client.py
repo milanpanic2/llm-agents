@@ -1,10 +1,9 @@
 import json
 
 from minio import Minio
-from minio.datatypes import Bucket
 
 from src.config import settings
-from src.garage.buckets import IMAGE_TRANSCRIPTIONS_BUCKET, EXAMPLE_PUBLIC_BUCKET
+from src.garage.buckets import EXAMPLE_PUBLIC_BUCKET, IMAGE_TRANSCRIPTIONS_BUCKET
 
 _PUBLIC_READ_BUCKET_POLICY = {
     "Version": "2012-10-17",

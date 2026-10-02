@@ -1,14 +1,11 @@
-import asyncio
-import logging
-
 import datetime as dt
+import logging
 
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 
-from src.clients.crw_client import CrwClient, SearchHit, ScrapedData
+from src.clients.crw_client import CrwClient, ScrapedData, SearchHit
 from src.errors import AppError, BadRequestError
-
 
 logger = logging.getLogger(__name__)
 

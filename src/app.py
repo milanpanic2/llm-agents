@@ -1,28 +1,34 @@
+import asyncio
 import logging
-from contextlib import asynccontextmanager, AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
+from functools import partial
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from glide import GlideClient, NodeAddress
 from glide_shared.config import BaseClientConfiguration
-from starlette.requests import Request
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
-from glide import GlideClient, NodeAddress
-from minio import Minio
+from starlette.requests import Request
 
-from src.agents.text_image_to_image_services import TASK_TRANSCRIPTION
+from src.agents import transcriptions_service
 from src.clients.crw_client import CrwClient
-from src.config import settings
+from src.config.settings import settings
 from src.config.telemetry import init_telemetry
 from src.database.connection import init_db, sync_engine
 from src.errors import AppError
 from src.garage.garage_client import init_garage_client
 from src.routes import router
-from src.streams.StreamConsumer import StreamConsumer
-
-from src.tasks.brokers import transcriptions_broker
+from src.WFQEngine import wfq_queries
+from src.WFQEngine.wfq_engine import WFQEngine
 
 logger = logging.getLogger(__name__)
+
+
+async def _cancel_workers(workers: list[asyncio.Task]):
+    for worker in workers:
+        worker.cancel()
+    await asyncio.gather(*workers, return_exceptions=True)
 
 
 @asynccontextmanager
@@ -51,20 +57,32 @@ async def lifespan(app: FastAPI):
         garage_client = init_garage_client()
         app.state.garage_client = garage_client
 
-        if not transcriptions_broker.is_worker_process:
-            await transcriptions_broker.startup()
-            stack.push_async_callback(transcriptions_broker.shutdown)
+        transcription_tasks_engine = WFQEngine(
+            transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
+            wfq_queries.WFQ_LONGEST_IDLE_CLAIM,
+            handler_func=partial(transcriptions_service.transcription_worker_handler_func,
+                                 model=model, garage_client=garage_client),
+            completion_func=partial(transcriptions_service.transcription_worker_completion_func,
+                                    garage_client=garage_client),
+        )
+        await transcription_tasks_engine.create_table()
+        transcriptions_workers = [
+            asyncio.create_task(transcription_tasks_engine.worker(f"w{i}"))
+            for i in range(settings.max_concurrent_transcriptions)
+        ]
+        stack.push_async_callback(_cancel_workers, transcriptions_workers)
 
+        # if not transcriptions_broker.is_worker_process:
+        #     await transcriptions_broker.startup()
+        #     stack.push_async_callback(transcriptions_broker.shutdown)
 
-        # web_crawler_agent = WebCrawlerAgent()
-        # stack.push_async_callback(web_crawler_agent.aclose)
-        # app.state.web_crawler_agent = web_crawler_agent
         yield
 
 
 app = FastAPI(
-    title="LLM Agents Service", description="LLM agents service for running llm tasks with custom built tools", version="0.1.0", lifespan=lifespan
+    title="LLM Agents Service", description="LLM agents service for running llm taskiq with custom built tools", version="0.1.0", lifespan=lifespan
 )
+
 
 app.include_router(router)
 

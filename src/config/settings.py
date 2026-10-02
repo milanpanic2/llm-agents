@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     app_port: int = 8000
     public_base_url: str = "http://localhost:8000"
     debug: bool = True
-    max_concurrent_transcriptions: int = 0
+    max_concurrent_transcriptions: int = 2
     postgresql_host: str = "postgresql"
     postgresql_port: str = "5432"
     postgresql_db_name: str = "llm-agents"
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     llm_api_key: str = "local"
 
     valkey_service_host: str = "http://localhost"
-    valkey_service_port: str = "6379"
+    valkey_service_port: int = 6379
 
     garage_endpoint: str = "garage.garage.svc.cluster.local"
     garage_access_key: str = "accessKey"

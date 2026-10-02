@@ -1,6 +1,6 @@
 apiVersion: v2
 name: llm-agents
-description: LLM agents service for running LLM tasks with custom-built tools
+description: LLM agents service for running LLM taskiq with custom-built tools
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
