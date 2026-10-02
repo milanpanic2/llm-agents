@@ -70,7 +70,10 @@ def setup_stdout_logging():
     root = logging.getLogger()
     root.handlers.clear()
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+    # otelTraceID/otelSpanID are injected by LoggingInstrumentor, but records created
+    # outside its factory (early startup, C-level) won't have them -> default to "0"
+    # so the formatter never raises KeyError.
+    handler.setFormatter(logging.Formatter(_LOG_FORMAT, defaults={"otelTraceID": "0", "otelSpanID": "0"}))
     root.addHandler(handler)
     root.setLevel(logging.INFO)
     LoggingInstrumentor().instrument()

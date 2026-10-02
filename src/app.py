@@ -51,13 +51,13 @@ async def lifespan(app: FastAPI):
         stack.push_async_callback(crw_client.aclose)
         app.state.crw_client = crw_client
 
-        logger.info("Creating valkey client")
-        valkey_client = GlideClient(BaseClientConfiguration([NodeAddress(
-            host=settings.valkey_service_host,
-            port=settings.valkey_service_port)]
-        ))
-        stack.push_async_callback(valkey_client.aclose)
-        app.state.valkey_client = valkey_client
+        # logger.info("Creating valkey client") - TODO: test valkey, then enable
+        # valkey_client = GlideClient(BaseClientConfiguration([NodeAddress(
+        #     host=settings.valkey_service_host,
+        #     port=settings.valkey_service_port)]
+        # ))
+        # stack.push_async_callback(valkey_client.aclose)
+        # app.state.valkey_client = valkey_client
 
         logger.info("Creating garage client")
         garage_client = init_garage_client()
@@ -72,6 +72,7 @@ async def lifespan(app: FastAPI):
             completion_func=partial(transcriptions_service.transcription_worker_completion_func,
                                     garage_client=garage_client),
         )
+        logger.info("ensuring task table exists")
         await transcription_tasks_engine.create_table()
         transcriptions_workers = [
             asyncio.create_task(transcription_tasks_engine.worker(f"w{i}"))
@@ -83,6 +84,7 @@ async def lifespan(app: FastAPI):
         #     await transcriptions_broker.startup()
         #     stack.push_async_callback(transcriptions_broker.shutdown)
 
+        logger.info("startup complete; serving requests")
         yield
 
 
