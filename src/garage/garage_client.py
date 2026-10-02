@@ -29,6 +29,7 @@ def init_garage_client() -> Minio:
                           access_key=settings.garage_access_key,
                           secret_key=settings.garage_secret_key,
                           region="garage",
+                          secure=False,  # garage S3 API is plain HTTP inside the cluster
                           http_client=http_client)
     init_buckets(garage_client)
 

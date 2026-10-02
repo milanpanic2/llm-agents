@@ -32,7 +32,7 @@ config:
   llmApiKey: "local"
   valkeyServiceUrl: "valkey.valkey.svc.cluster.local"
   valkeyServicePort: "6379"
-  garageEndpoint: "garage.garage.svc.cluster.local"
+  garageEndpoint: "garage.garage.svc.cluster.local:3900"
   garageAccessKey: "GK87197f668e14d94fe448c84a"
   garageSecretKey: "8605e7350f071d3b49f3f4610c11f5f05c99cc2a623c18d81421df749a816d87"
 
