@@ -7,7 +7,7 @@ from minio import Minio
 from pydantic_ai.models import Model
 from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
-from src.config import settings
+from src.config.settings import settings
 from taskiq import TaskiqDepends
 
 transcriptions_broker = (

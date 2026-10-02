@@ -4,7 +4,7 @@ import logging
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from src.config import settings
+from src.config.settings import settings
 from src.errors import AppError, BadRequestError
 
 logger = logging.getLogger(__name__)

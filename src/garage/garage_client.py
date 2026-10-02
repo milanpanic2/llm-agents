@@ -2,7 +2,7 @@ import json
 
 from minio import Minio
 
-from src.config import settings
+from src.config.settings import settings
 from src.garage.buckets import EXAMPLE_PUBLIC_BUCKET, IMAGE_TRANSCRIPTIONS_BUCKET
 
 _PUBLIC_READ_BUCKET_POLICY = {
