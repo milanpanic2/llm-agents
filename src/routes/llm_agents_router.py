@@ -11,8 +11,8 @@ from starlette.responses import StreamingResponse
 
 from src.agents import transcriptions_service
 from src.agents.transcriptions_service import TranscriptionResult
-from src.config import settings
-from src.database import get_db
+from src.config.settings import settings
+from src.database.connection import get_db
 from src.errors import BadRequestError
 
 router = APIRouter(prefix="/llm-agents/v1", tags=["llm-agents"])
