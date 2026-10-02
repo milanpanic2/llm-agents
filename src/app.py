@@ -33,20 +33,25 @@ async def _cancel_workers(workers: list[asyncio.Task]):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
     init_telemetry(app, sync_engine)
 
+    logger.info("FastAPI started successfully. Starting init work...")
+    init_db()
+
     async with AsyncExitStack() as stack:
+        logger.info("Connecting to OpenAIChatModel")
         model = OpenAIChatModel(
             settings.llm_model,
             provider=OpenAIProvider(base_url=settings.llm_base_url, api_key=settings.llm_api_key),
         )
         app.state.model = model
 
+        logger.info("Creating crawler client")
         crw_client = CrwClient()
         stack.push_async_callback(crw_client.aclose)
         app.state.crw_client = crw_client
 
+        logger.info("Creating valkey client")
         valkey_client = GlideClient(BaseClientConfiguration([NodeAddress(
             host=settings.valkey_service_host,
             port=settings.valkey_service_port)]
@@ -54,9 +59,11 @@ async def lifespan(app: FastAPI):
         stack.push_async_callback(valkey_client.aclose)
         app.state.valkey_client = valkey_client
 
+        logger.info("Creating garage client")
         garage_client = init_garage_client()
         app.state.garage_client = garage_client
 
+        logger.info(f"Creating wfq engine, and starting {settings.max_concurrent_transcriptions} workers")
         transcription_tasks_engine = WFQEngine(
             transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
             wfq_queries.WFQ_LONGEST_IDLE_CLAIM,
