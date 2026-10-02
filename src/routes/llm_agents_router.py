@@ -45,35 +45,37 @@ def get_garage_client(request: Request) -> Minio:
     return request.app.state.garage_client
 
 
-@router.post("/transcription-agent/transcribe", response_model={"context_id": str})
+@router.post("/transcription-agent/transcribe")
 async def image_text_to_text(
     uploads: list[UploadFile],
     psql_connection = Depends(get_db),
     garage_client = Depends(get_garage_client),
-    user_id: str = Depends(get_user_id)) -> str:
+    user_id: str = Depends(get_user_id)) -> dict[str, str]:
     if len(uploads) > 5:
         raise BadRequestError("LAR-01",
                               "Max 5 transcriptions. Use zip file endpoint for more support")
-    return await transcriptions_service.queue_images_for_transcript(uploads, psql_connection, garage_client,
-                                                                    user_id)
+    context_id = await transcriptions_service.queue_images_for_transcript(uploads, psql_connection, garage_client,
+                                                                          user_id)
+    return {"context_id": context_id}
 
-@router.post("/transcription-agent/transcribe/zip", response_model={"context_id": str})
+@router.post("/transcription-agent/transcribe/zip")
 async def image_text_to_text_zip(
     uploads: UploadFile,
     psql_connection = Depends(get_db),
     garage_client = Depends(get_garage_client),
-    user_id: str = Depends(get_user_id)) -> str:
-    return await transcriptions_service.queue_images_for_transcript_zip(uploads, psql_connection, garage_client,
-                                                                        user_id)
+    user_id: str = Depends(get_user_id)) -> dict[str, str]:
+    context_id = await transcriptions_service.queue_images_for_transcript_zip(uploads, psql_connection, garage_client,
+                                                                              user_id)
+    return {"context_id": context_id}
 
 
-@router.get("/transcription-agent/{context_id}", response_model = list[str])
+@router.get("/transcription-agent/{context_id}")
 async def get_results(context_id: str,
                       session = Depends(get_db)) -> TranscriptionResult:
     return await transcriptions_service.get_results(context_id, session)
 
 
-@router.get("/transcription-agent/{context_id}/download", response_model = StreamingResponse)
+@router.get("/transcription-agent/{context_id}/download")
 async def download_transcription_file(context_id: str,
                                       garage_client = Depends(get_garage_client)) -> StreamingResponse:
     return StreamingResponse(
