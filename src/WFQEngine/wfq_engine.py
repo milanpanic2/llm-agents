@@ -63,13 +63,13 @@ class WFQEngine:
     def __init__(self, table_name: str, sql_claim: str,
                  handler_func: Callable[[WFQTaskData], Awaitable[None]],
                  completion_func: Callable[[WFQTaskData], Awaitable[None]] | None = None,
-                 retry_interval: float = 5):
+                 retry_interval: float = 1):
         logger.info("initializing WFQEngine table=%s", table_name)
         self.table_name = table_name
         self.sql_claim = sql_claim
         self.handler_func = handler_func
         self.completion_func = completion_func
-        self.retry_interval = retry_interval
+        self.retry_interval = retry_interval # after how much minutes should retry happen
 
 
     async def create_table(self):
@@ -152,7 +152,7 @@ class WFQEngine:
 
     async def _claim_for_retry(self) -> RowMapping | None:
         """Outputs an element that is with 'running' status older than the given retry_interval - async safe
-        Note: retry_interval should be longer than expected longest time for a task.
+        Note: retry_interval should be longer than expected longest time for a task to finish.
         Otherwise, a running task is retried"""
 
         async with AsyncSessionLocal() as session:
@@ -163,7 +163,7 @@ class WFQEngine:
                     SELECT t2.id
                     FROM {self.table_name} t2
                     WHERE t2.status = 'running'
-                      AND t2.started_at < now() - (:retry_interval * interval '1 minute')
+                      AND t2.started_at < now() - ({self.retry_interval} * interval '1 minute')
                     ORDER BY t2.started_at ASC
                     FOR UPDATE OF t2 SKIP LOCKED
                     LIMIT 1
