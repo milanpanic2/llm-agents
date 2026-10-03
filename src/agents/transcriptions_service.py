@@ -61,6 +61,8 @@ IMAGE_TEXT_TO_TEXT_AGENT_INSTRUCTIONS = (
     "If the image contains no text, output an empty string."
 )
 
+# Timeout (15s) and retry budget live on this agent's model, built in app.py
+# from a with_options() view of the shared client (see transcription_model).
 transcriptions_agent = Agent(
     instructions=IMAGE_TEXT_TO_TEXT_AGENT_INSTRUCTIONS,
     output_type=str,

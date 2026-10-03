@@ -5,8 +5,7 @@ from functools import partial
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from glide import GlideClient, NodeAddress
-from glide_shared.config import BaseClientConfiguration
+from openai import AsyncOpenAI
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from starlette.requests import Request
@@ -39,36 +38,33 @@ async def lifespan(app: FastAPI):
     init_db()
 
     async with AsyncExitStack() as stack:
-        logger.info("Connecting to OpenAIChatModel")
-        model = OpenAIChatModel(
-            settings.llm_model,
-            provider=OpenAIProvider(base_url=settings.llm_base_url, api_key=settings.llm_api_key),
-        )
-        app.state.model = model
-
         logger.info("Creating crawler client")
         crw_client = CrwClient()
         stack.push_async_callback(crw_client.aclose)
         app.state.crw_client = crw_client
 
-        # logger.info("Creating valkey client") - TODO: test valkey, then enable
-        # valkey_client = GlideClient(BaseClientConfiguration([NodeAddress(
-        #     host=settings.valkey_service_host,
-        #     port=settings.valkey_service_port)]
-        # ))
-        # stack.push_async_callback(valkey_client.aclose)
-        # app.state.valkey_client = valkey_client
-
         logger.info("Creating garage client")
         garage_client = init_garage_client()
         app.state.garage_client = garage_client
+
+        logger.info("Connecting to OpenAIChatModel")
+        # One shared client + connection pool, closed on shutdown via the stack.
+        openai_client = await stack.enter_async_context(
+            AsyncOpenAI(base_url=settings.llm_base_url, api_key=settings.llm_api_key)
+        )
+
+        transcription_model = OpenAIChatModel(
+            settings.llm_model,
+            provider=OpenAIProvider(
+                openai_client=openai_client.with_options(max_retries=1, timeout=15.0)),
+        )
 
         logger.info(f"Creating wfq engine, and starting {settings.max_concurrent_transcriptions} workers")
         transcription_tasks_engine = WFQEngine(
             transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
             wfq_queries.WFQ_LONGEST_IDLE_CLAIM,
             handler_func=partial(transcriptions_service.transcription_worker_handler_func,
-                                 model=model, garage_client=garage_client),
+                                 model=transcription_model, garage_client=garage_client),
             completion_func=partial(transcriptions_service.transcription_worker_completion_func,
                                     garage_client=garage_client),
         )

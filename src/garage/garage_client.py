@@ -37,8 +37,6 @@ def init_garage_client() -> Minio:
 
 
 def init_buckets(garage_client: Minio):
-    # bucket_names = {bucket.name for bucket in garage_client.list_buckets()}
-
     if not garage_client.bucket_exists(IMAGE_TRANSCRIPTIONS_BUCKET):
         garage_client.make_bucket(IMAGE_TRANSCRIPTIONS_BUCKET) # bucket
 
