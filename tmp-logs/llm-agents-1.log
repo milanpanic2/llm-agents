@@ -1,387 +1,122 @@
 INFO:     Started server process [1]
 INFO:     Waiting for application startup.
---- Logging error ---
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 472, in format
-    return self._format(record)
-           ~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 468, in _format
-    return self._fmt % values
-           ~~~~~~~~~~^~~~~~~~
-KeyError: 'otelTraceID'
+2026-10-02 10:40:33,588 INFO [src.app] trace=0 span=0 FastAPI started successfully. Starting init work...
+2026-10-02 10:40:33,598 INFO [src.app] trace=0 span=0 Connecting to OpenAIChatModel
+2026-10-02 10:40:34,050 INFO [src.app] trace=0 span=0 Creating crawler client
+2026-10-02 10:40:34,089 INFO [src.app] trace=0 span=0 Creating garage client
+2026-10-02 10:40:39,094 WARNING [urllib3.connectionpool] trace=0 span=0 Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='garage.garage.svc.cluster.local', port=443) at 0x723a2016d160>, 'Connection to garage.garage.svc.cluster.local timed out. (connect timeout=5.0)')': /image-transcriptions-bucket
+2026-10-02 10:40:44,500 WARNING [urllib3.connectionpool] trace=0 span=0 Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ConnectTimeoutError(<HTTPSConnection(host='garage.garage.svc.cluster.local', port=443) at 0x723a24395d10>, 'Connection to garage.garage.svc.cluster.local timed out. (connect timeout=5.0)')': /image-transcriptions-bucket
+ERROR:    Traceback (most recent call last):
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connection.py", line 204, in _new_conn
+    sock = connection.create_connection(
+        (self._dns_host, self.port),
+    ...<2 lines>...
+        socket_options=self.socket_options,
+    )
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/util/connection.py", line 85, in create_connection
+    raise err
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/util/connection.py", line 73, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+TimeoutError: timed out
 
-During handling of the above exception, another exception occurred:
+The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 1151, in emit
-    msg = self.format(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 999, in format
-    return fmt.format(record)
-           ~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 715, in format
-    s = self.formatMessage(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 684, in formatMessage
-    return self._style.format(record)
-           ~~~~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 474, in format
-    raise ValueError('Formatting field not found in record: %s' % e)
-ValueError: Formatting field not found in record: 'otelTraceID'
-Call stack:
-  File "/app/main.py", line 29, in <module>
-    main()
-  File "/app/main.py", line 25, in main
-    uvicorn.run(app="src.app:app", host=settings.app_host, port=settings.app_port, reload=settings.debug)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 621, in run
-    server.run()
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 74, in run
-    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 196, in run
-    return runner.run(main)
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 119, in run
-    return self._loop.run_until_complete(task)
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 713, in run_until_complete
-    self.run_forever()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 684, in run_forever
-    self._run_once()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 2061, in _run_once
-    handle._run()
-  File "/usr/local/lib/python3.13/asyncio/events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/lifespan/on.py", line 86, in main
-    await app(scope, self.receive, self.send)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 30, in __call__
-    return await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
-    await super().__call__(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 151, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 49, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2677, in app
-    await self.lifespan(scope, receive, send)
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 788, in urlopen
+    response = self._make_request(
+        conn,
+    ...<10 lines>...
+        **response_kw,
+    )
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 488, in _make_request
+    raise new_e
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 1106, in _validate_conn
+    conn.connect()
+    ~~~~~~~~~~~~^^
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connection.py", line 759, in connect
+    self.sock = sock = self._new_conn()
+                       ~~~~~~~~~~~~~~^^
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connection.py", line 213, in _new_conn
+    raise ConnectTimeoutError(
+    ...<2 lines>...
+    ) from e
+urllib3.exceptions.ConnectTimeoutError: (<HTTPSConnection(host='garage.garage.svc.cluster.local', port=443) at 0x723a20190190>, 'Connection to garage.garage.svc.cluster.local timed out. (connect timeout=5.0)')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
   File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 638, in lifespan
     async with self.lifespan_context(app) as maybe_state:
+               ~~~~~~~~~~~~~~~~~~~~~^^^^^
   File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
     return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
   File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 233, in merged_lifespan
     async with original_context(app) as maybe_original_state:
+               ~~~~~~~~~~~~~~~~^^^^^
   File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
     return await anext(self.gen)
-  File "/app/src/app.py", line 38, in lifespan
-    logger.info("FastAPI started successfully. Starting init work...")
-Message: 'FastAPI started successfully. Starting init work...'
-Arguments: ()
---- Logging error ---
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 472, in format
-    return self._format(record)
-           ~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 468, in _format
-    return self._fmt % values
-           ~~~~~~~~~~^~~~~~~~
-KeyError: 'otelTraceID'
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/app/src/app.py", line 63, in lifespan
+    garage_client = init_garage_client()
+  File "/app/src/garage/garage_client.py", line 33, in init_garage_client
+    init_buckets(garage_client)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/app/src/garage/garage_client.py", line 41, in init_buckets
+    if not garage_client.bucket_exists(IMAGE_TRANSCRIPTIONS_BUCKET):
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.13/site-packages/minio/api.py", line 700, in bucket_exists
+    self._execute("HEAD", bucket_name)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/app/.venv/lib/python3.13/site-packages/minio/api.py", line 444, in _execute
+    return self._url_open(
+           ~~~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<7 lines>...
+        no_body_trace=no_body_trace,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/app/.venv/lib/python3.13/site-packages/minio/api.py", line 306, in _url_open
+    response = self._http.urlopen(
+        method,
+    ...<3 lines>...
+        preload_content=preload_content,
+    )
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/poolmanager.py", line 457, in urlopen
+    response = conn.urlopen(method, u.request_uri, **kw)
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 872, in urlopen
+    return self.urlopen(
+           ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<13 lines>...
+        **response_kw,
+        ^^^^^^^^^^^^^^
+    )
+    ^
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 872, in urlopen
+    return self.urlopen(
+           ~~~~~~~~~~~~^
+        method,
+        ^^^^^^^
+    ...<13 lines>...
+        **response_kw,
+        ^^^^^^^^^^^^^^
+    )
+    ^
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/connectionpool.py", line 842, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "/app/.venv/lib/python3.13/site-packages/urllib3/util/retry.py", line 543, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='garage.garage.svc.cluster.local', port=443): Max retries exceeded with url: /image-transcriptions-bucket (Caused by ConnectTimeoutError(<HTTPSConnection(host='garage.garage.svc.cluster.local', port=443) at 0x723a20190190>, 'Connection to garage.garage.svc.cluster.local timed out. (connect timeout=5.0)'))
 
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 1151, in emit
-    msg = self.format(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 999, in format
-    return fmt.format(record)
-           ~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 715, in format
-    s = self.formatMessage(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 684, in formatMessage
-    return self._style.format(record)
-           ~~~~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 474, in format
-    raise ValueError('Formatting field not found in record: %s' % e)
-ValueError: Formatting field not found in record: 'otelTraceID'
-Call stack:
-  File "/app/main.py", line 29, in <module>
-    main()
-  File "/app/main.py", line 25, in main
-    uvicorn.run(app="src.app:app", host=settings.app_host, port=settings.app_port, reload=settings.debug)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 621, in run
-    server.run()
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 74, in run
-    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 196, in run
-    return runner.run(main)
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 119, in run
-    return self._loop.run_until_complete(task)
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 713, in run_until_complete
-    self.run_forever()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 684, in run_forever
-    self._run_once()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 2061, in _run_once
-    handle._run()
-  File "/usr/local/lib/python3.13/asyncio/events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/lifespan/on.py", line 86, in main
-    await app(scope, self.receive, self.send)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 30, in __call__
-    return await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
-    await super().__call__(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 151, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 49, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2677, in app
-    await self.lifespan(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 638, in lifespan
-    async with self.lifespan_context(app) as maybe_state:
-  File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
-    return await anext(self.gen)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 233, in merged_lifespan
-    async with original_context(app) as maybe_original_state:
-  File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
-    return await anext(self.gen)
-  File "/app/src/app.py", line 42, in lifespan
-    logger.info("Connecting to OpenAIChatModel")
-Message: 'Connecting to OpenAIChatModel'
-Arguments: ()
---- Logging error ---
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 472, in format
-    return self._format(record)
-           ~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 468, in _format
-    return self._fmt % values
-           ~~~~~~~~~~^~~~~~~~
-KeyError: 'otelTraceID'
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 1151, in emit
-    msg = self.format(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 999, in format
-    return fmt.format(record)
-           ~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 715, in format
-    s = self.formatMessage(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 684, in formatMessage
-    return self._style.format(record)
-           ~~~~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 474, in format
-    raise ValueError('Formatting field not found in record: %s' % e)
-ValueError: Formatting field not found in record: 'otelTraceID'
-Call stack:
-  File "/app/main.py", line 29, in <module>
-    main()
-  File "/app/main.py", line 25, in main
-    uvicorn.run(app="src.app:app", host=settings.app_host, port=settings.app_port, reload=settings.debug)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 621, in run
-    server.run()
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 74, in run
-    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 196, in run
-    return runner.run(main)
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 119, in run
-    return self._loop.run_until_complete(task)
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 713, in run_until_complete
-    self.run_forever()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 684, in run_forever
-    self._run_once()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 2061, in _run_once
-    handle._run()
-  File "/usr/local/lib/python3.13/asyncio/events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/lifespan/on.py", line 86, in main
-    await app(scope, self.receive, self.send)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 30, in __call__
-    return await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
-    await super().__call__(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 151, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 49, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2677, in app
-    await self.lifespan(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 638, in lifespan
-    async with self.lifespan_context(app) as maybe_state:
-  File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
-    return await anext(self.gen)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 233, in merged_lifespan
-    async with original_context(app) as maybe_original_state:
-  File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
-    return await anext(self.gen)
-  File "/app/src/app.py", line 49, in lifespan
-    logger.info("Creating crawler client")
-Message: 'Creating crawler client'
-Arguments: ()
---- Logging error ---
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 472, in format
-    return self._format(record)
-           ~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 468, in _format
-    return self._fmt % values
-           ~~~~~~~~~~^~~~~~~~
-KeyError: 'otelTraceID'
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 1151, in emit
-    msg = self.format(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 999, in format
-    return fmt.format(record)
-           ~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 715, in format
-    s = self.formatMessage(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 684, in formatMessage
-    return self._style.format(record)
-           ~~~~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 474, in format
-    raise ValueError('Formatting field not found in record: %s' % e)
-ValueError: Formatting field not found in record: 'otelTraceID'
-Call stack:
-  File "/app/main.py", line 29, in <module>
-    main()
-  File "/app/main.py", line 25, in main
-    uvicorn.run(app="src.app:app", host=settings.app_host, port=settings.app_port, reload=settings.debug)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 621, in run
-    server.run()
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 74, in run
-    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 196, in run
-    return runner.run(main)
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 119, in run
-    return self._loop.run_until_complete(task)
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 713, in run_until_complete
-    self.run_forever()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 684, in run_forever
-    self._run_once()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 2061, in _run_once
-    handle._run()
-  File "/usr/local/lib/python3.13/asyncio/events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/lifespan/on.py", line 86, in main
-    await app(scope, self.receive, self.send)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 30, in __call__
-    return await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
-    await super().__call__(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 151, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 49, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2677, in app
-    await self.lifespan(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 638, in lifespan
-    async with self.lifespan_context(app) as maybe_state:
-  File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
-    return await anext(self.gen)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 233, in merged_lifespan
-    async with original_context(app) as maybe_original_state:
-  File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
-    return await anext(self.gen)
-  File "/app/src/app.py", line 54, in lifespan
-    logger.info("Creating valkey client")
-Message: 'Creating valkey client'
-Arguments: ()
---- Logging error ---
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 472, in format
-    return self._format(record)
-           ~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 468, in _format
-    return self._fmt % values
-           ~~~~~~~~~~^~~~~~~~
-KeyError: 'otelTraceID'
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 1151, in emit
-    msg = self.format(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 999, in format
-    return fmt.format(record)
-           ~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 715, in format
-    s = self.formatMessage(record)
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 684, in formatMessage
-    return self._style.format(record)
-           ~~~~~~~~~~~~~~~~~~^^^^^^^^
-  File "/usr/local/lib/python3.13/logging/__init__.py", line 474, in format
-    raise ValueError('Formatting field not found in record: %s' % e)
-ValueError: Formatting field not found in record: 'otelTraceID'
-Call stack:
-  File "/app/main.py", line 29, in <module>
-    main()
-  File "/app/main.py", line 25, in main
-    uvicorn.run(app="src.app:app", host=settings.app_host, port=settings.app_port, reload=settings.debug)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 621, in run
-    server.run()
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 74, in run
-    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 196, in run
-    return runner.run(main)
-  File "/usr/local/lib/python3.13/asyncio/runners.py", line 119, in run
-    return self._loop.run_until_complete(task)
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 713, in run_until_complete
-    self.run_forever()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 684, in run_forever
-    self._run_once()
-  File "/usr/local/lib/python3.13/asyncio/base_events.py", line 2061, in _run_once
-    handle._run()
-  File "/usr/local/lib/python3.13/asyncio/events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/lifespan/on.py", line 86, in main
-    await app(scope, self.receive, self.send)
-  File "/app/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 30, in __call__
-    return await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1163, in __call__
-    await super().__call__(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 151, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 49, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 2677, in app
-    await self.lifespan(scope, receive, send)
-  File "/app/.venv/lib/python3.13/site-packages/starlette/routing.py", line 638, in lifespan
-    async with self.lifespan_context(app) as maybe_state:
-  File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
-    return await anext(self.gen)
-  File "/app/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 233, in merged_lifespan
-    async with original_context(app) as maybe_original_state:
-  File "/usr/local/lib/python3.13/contextlib.py", line 214, in __aenter__
-    return await anext(self.gen)
-  File "/app/src/app.py", line 62, in lifespan
-    logger.info("Creating garage client")
-Message: 'Creating garage client'
-Arguments: ()
+ERROR:    Application startup failed. Exiting.

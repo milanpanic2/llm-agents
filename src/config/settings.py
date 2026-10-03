@@ -32,9 +32,9 @@ class Settings(BaseSettings):
     valkey_service_host: str = "http://localhost"
     valkey_service_port: int = 6379
 
-    garage_endpoint: str = "garage.garage.svc.cluster.local"
-    garage_access_key: str = "accessKey"
+    garage_endpoint: str = "garage.garage.svc.cluster.local:3900"
     garage_secret_key: str = "secretKey"
+    garage_access_key: str = "accessKey"
 
 
     @property

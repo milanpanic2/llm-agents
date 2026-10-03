@@ -41,6 +41,16 @@ spec:
             secretKeyRef:
               name: {{ .Values.database.secretName }}
               key: password
+        - name: GARAGE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.config.garageSecret }}
+              key: secret_key
+        - name: GARAGE_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.config.garageSecret }}
+              key: access_key
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         livenessProbe:

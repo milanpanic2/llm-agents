@@ -25,5 +25,3 @@ data:
   VALKE_SERVICE_URL: {{ .Values.config.valkeyServiceUrl | quote }}
   VALKEY_SERVICE_PORT: {{ .Values.config.valkeyServicePort | quote }}
   GARAGE_ENDPOINT: {{ .Values.config.garageEndpoint | quote }}
-  GARAGE_ACCESS_KEY: {{ .Values.config.garageAccessKey | quote }}
-  GARAGE_SECRET_KEY: {{ .Values.config.garageSecretKey | quote }}
