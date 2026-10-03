@@ -1,12 +1,10 @@
 import logging
-from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi import UploadFile as UF
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from glide import GlideClient
 from minio import Minio
-from pydantic import WithJsonSchema
 from starlette.responses import StreamingResponse
 
 from src.agents import transcriptions_service
@@ -21,15 +19,12 @@ router = APIRouter(prefix="/llm-agents/v1", tags=["llm-agents"])
 logger = logging.getLogger(__name__)
 
 
-UploadFile = Annotated[UF, WithJsonSchema({"type": "string", "format": "binary"})] #todo, remove when swagger fixes files array
+bearer_scheme = HTTPBearer()
 
 
-async def get_user_id(request: Request) -> str:
-    auth = request.headers.get("Authorization")
-    if not auth or not auth.startswith("Bearer "):
-        raise HTTPException(401, "Missing token")
+async def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)) -> str:
     try:
-        payload = jwt.decode(auth[7:], settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(credentials.credentials, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except jwt.ExpiredSignatureError:
         raise HTTPException(401, "Token expired") from None
     except jwt.InvalidTokenError:
@@ -47,7 +42,7 @@ def get_garage_client(request: Request) -> Minio:
 
 @router.post("/transcription-agent/transcribe")
 async def image_text_to_text(
-    uploads: list[UploadFile],
+    uploads: list[UploadFile] = File(...),
     psql_connection = Depends(get_db),
     garage_client = Depends(get_garage_client),
     user_id: str = Depends(get_user_id)) -> dict[str, str]:
@@ -60,11 +55,11 @@ async def image_text_to_text(
 
 @router.post("/transcription-agent/transcribe/zip")
 async def image_text_to_text_zip(
-    uploads: UploadFile,
+    upload: UploadFile = File(...),
     psql_connection = Depends(get_db),
     garage_client = Depends(get_garage_client),
-    user_id: str = Depends(get_user_id)) -> dict[str, str]:
-    context_id = await transcriptions_service.queue_images_for_transcript_zip(uploads, psql_connection, garage_client,
+    user_id = Depends(get_user_id)) -> dict[str, str]:
+    context_id = await transcriptions_service.queue_images_for_transcript_zip(upload, psql_connection, garage_client,
                                                                               user_id)
     return {"context_id": context_id}
 
@@ -78,8 +73,9 @@ async def get_results(context_id: str,
 @router.get("/transcription-agent/{context_id}/download")
 async def download_transcription_file(context_id: str,
                                       garage_client = Depends(get_garage_client)) -> StreamingResponse:
+    file_download = transcriptions_service.download_transcription_file(context_id, garage_client)
     return StreamingResponse(
-        transcriptions_service.download_transcription_file(context_id, garage_client),
+        file_download,
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{context_id}.txt"'})
 
