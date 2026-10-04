@@ -1,11 +1,9 @@
 import json
 
-from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.WFQEngine.wfq_engine import TaskContextProgress, WFQTaskData
-from src.agents.transcriptions_service import FailureReasons
+from src.WFQEngine.wfq_engine import FailureReasons, TaskContextProgress, WFQTaskData
 
 
 async def add_tasks_bulk(session: AsyncSession, table_name: str, wfq_tasks: list[WFQTaskData]):

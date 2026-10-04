@@ -12,7 +12,7 @@ from fastapi import HTTPException, UploadFile
 from minio import Minio, S3Error
 from minio.deleteobjects import DeleteObject
 from pydantic import BaseModel
-from pydantic_ai import Agent, AgentRunError, BinaryContent
+from pydantic_ai import Agent, BinaryContent
 from pydantic_ai.models import Model
 from sqlalchemy.ext.asyncio import AsyncSession
 from urllib3 import BaseHTTPResponse
@@ -21,7 +21,7 @@ from src.config.settings import settings
 from src.errors import AppError, BadRequestError
 from src.garage.buckets import IMAGE_TRANSCRIPTIONS_BUCKET
 from src.WFQEngine import wfq_utils
-from src.WFQEngine.wfq_engine import WFQTaskData, WFQTaskStatus
+from src.WFQEngine.wfq_engine import FailureReasons, WFQTaskData, WFQTaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +42,6 @@ _CHUNK_SIZE = 2 * 1024 * 1024
 class Transcription(BaseModel):
     filename: str
     text: str
-
-
-class FailureReasons(BaseModel):
-    id: str
-    failure_reason: str
 
 
 class TranscriptionResult(BaseModel):

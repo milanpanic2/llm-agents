@@ -60,6 +60,11 @@ class TaskContextProgress(BaseModel):
     failed: int
 
 
+class FailureReasons(BaseModel):
+    id: str
+    failure_reason: str
+
+
 class WFQEngine:
     def __init__(self, table_name: str, sql_claim: str,
                  handler_func: Callable[[WFQTaskData], Awaitable[None]],
