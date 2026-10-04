@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
         transcription_model = OpenAIChatModel(
             settings.llm_model,
             provider=OpenAIProvider(
-                openai_client=openai_client.with_options(max_retries=0, timeout=120.0)),
+                openai_client=openai_client.with_options(max_retries=1, timeout=120.0)),
         )
 
         logger.info(f"Creating wfq engine, and starting {settings.max_concurrent_transcriptions} workers")

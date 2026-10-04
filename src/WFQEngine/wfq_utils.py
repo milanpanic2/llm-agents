@@ -1,9 +1,11 @@
 import json
 
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.WFQEngine.wfq_engine import TaskContextProgress, WFQTaskData
+from src.agents.transcriptions_service import FailureReasons
 
 
 async def add_tasks_bulk(session: AsyncSession, table_name: str, wfq_tasks: list[WFQTaskData]):
@@ -26,4 +28,12 @@ async def get_progress(session: AsyncSession, table_name: str, context_id: str) 
     await session.commit()
     return TaskContextProgress(**counts)
 
+
+async def get_failure_reasons(session: AsyncSession, table_name: str, context_id: str) -> list[FailureReasons]:
+    sql = f"""SELECT id, failure_reason
+              FROM {table_name}
+              WHERE context_id = :context_id AND status = 'failed'"""
+    rows = (await session.execute(text(sql), {"context_id": context_id})).mappings().all()
+    await session.commit()
+    return [FailureReasons(**row) for row in rows]
 

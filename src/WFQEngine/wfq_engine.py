@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from sqlalchemy import RowMapping, text
 
 from src.database.connection import AsyncSessionLocal
-from src.errors import AppError
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +29,10 @@ class WFQTaskStatus(StrEnum):
 
 
 class WFQTaskData(BaseModel):
+    id: str = "" # DB assigns on insert
     context_id: str
     payload: dict[str, Any]
+    failure_reason: str = ""
 
 
 # TODO - make with DeclarativeBase from sql-alchemy
@@ -63,7 +64,7 @@ class WFQEngine:
     def __init__(self, table_name: str, sql_claim: str,
                  handler_func: Callable[[WFQTaskData], Awaitable[None]],
                  completion_func: Callable[[WFQTaskData], Awaitable[None]] | None = None,
-                 retry_interval: float = 3):
+                 retry_interval: float = 5):
         logger.info("initializing WFQEngine table=%s", table_name)
         self.table_name = table_name
         self.sql_claim = sql_claim
@@ -127,26 +128,29 @@ class WFQEngine:
 
     async def _do_work(self, task: RowMapping):
         """Main thing a task does. Calls the given handler_func and completion_func on WFQEngine object creation.
-        Handles AppError exceptions thrown from the service provided functions"""
+        Any exception from either is caught and recorded as the task's failure_reason, so a task never gets
+        stuck in 'running' because of an error we didn't anticipate."""
 
         log = _TaskLog(logger, {"task_id": task["id"], "context_id": task["context_id"]})
         try:
             await self.handler_func(WFQTaskData(**task))
+        except Exception as exc:
+            reason = repr(exc)
+            log.warning("task failed: %s", reason, exc_info=exc)
+            counts = await self._update_task_state_and_get_count(
+                task["id"], task["context_id"], WFQTaskStatus.FAILED, reason)
+        else:
             counts = await self._update_task_state_and_get_count(
                 task["id"], task["context_id"], WFQTaskStatus.DONE)
             log.info("task done (%s/%s in context)", counts.done + counts.failed, counts.total)
-        except AppError as err:
-            log.warning("task failed: %s: %s", err.code, err.detail)
-            counts = await self._update_task_state_and_get_count(
-                task["id"], task["context_id"], WFQTaskStatus.FAILED, f"{err.code}: {err.detail}")
 
         if counts.done + counts.failed == counts.total and self.completion_func is not None:
             try:
                 await self.completion_func(WFQTaskData(**task))
                 log.info("context complete")
-            except Exception as err:
-                log.exception("completion failed, failing whole context")
-                reason = f"{err.code}: {err.detail}" if isinstance(err, AppError) else f"internal error: {err}"
+            except Exception as exc:
+                reason = repr(exc)
+                log.exception("completion failed, failing whole context: %s", reason)
                 await self._fail_whole_context(reason, task["context_id"])
 
 

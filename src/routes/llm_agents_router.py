@@ -70,6 +70,9 @@ async def get_results(context_id: str,
     return await transcriptions_service.get_results(context_id, session)
 
 
+# TODO: add retry failed
+
+
 @router.get("/transcription-agent/{context_id}/download")
 async def download_transcription_file(context_id: str,
                                       garage_client = Depends(get_garage_client)) -> StreamingResponse:

@@ -44,13 +44,18 @@ class Transcription(BaseModel):
     text: str
 
 
+class FailureReasons(BaseModel):
+    id: str
+    failure_reason: str
+
+
 class TranscriptionResult(BaseModel):
     context_id: str
     status: str
     total: int = 0
     done: int = 0
     failed: int = 0
-    failure_reasons: list[str] = []
+    failure_reasons: list[FailureReasons] = []
     download_link: str = ""
 
 
@@ -168,17 +173,12 @@ async def transcription_worker_handler_func(wfq_task_data: WFQTaskData,
     request_data: TranscriptionTaskData = TranscriptionTaskData.model_validate(wfq_task_data.payload)
     logger.info("transcribing context_id=%s object_name=%s", wfq_task_data.context_id, request_data.object_name)
 
-    try:
-        image_object: BaseHTTPResponse = await asyncio.to_thread(garage_client.get_object,
+    image_object: BaseHTTPResponse = await asyncio.to_thread(garage_client.get_object,
                                              IMAGE_TRANSCRIPTIONS_BUCKET,
                                              request_data.file_path)
-    except S3Error as exc:
-        raise AppError("TS-08", f"Failed to read image from s3. Reason: {exc}") from exc
 
     try:
         text = await convert_to_text(model, await asyncio.to_thread(image_object.read), request_data.media_type)
-    except AgentRunError as err:
-        raise AppError("TS-01", f"Agent failed to transcribe image to text. Reason: {err.message}") from err
     finally:
         image_object.close()
         image_object.release_conn()
@@ -189,14 +189,11 @@ async def transcription_worker_handler_func(wfq_task_data: WFQTaskData,
     full_text = f"=== {request_data.original_file_name} ===\n{text}\n\n"
     text_bytes = full_text.encode("utf-8")
 
-    try:
-        await asyncio.to_thread(garage_client.put_object, IMAGE_TRANSCRIPTIONS_BUCKET,
+    await asyncio.to_thread(garage_client.put_object, IMAGE_TRANSCRIPTIONS_BUCKET,
                                                          f"{wfq_task_data.context_id}/outputs/{request_data.object_name}.txt",
                                                          io.BytesIO(text_bytes),
                                                          length=len(text_bytes),
                                                          content_type="text/plain; charset=utf-8")
-    except (ValueError, S3Error) as exc:
-        raise AppError("TS-02", f"Failed to write transcribed text as s3 file. Reason: {exc}") from exc
 
 
 async def transcription_worker_completion_func(wfq_task_data: WFQTaskData, garage_client: Minio):
@@ -207,8 +204,8 @@ async def transcription_worker_completion_func(wfq_task_data: WFQTaskData, garag
 def _merge_and_upload_transcripts(context_id: str, garage_client: Minio):
     workdir = tempfile.mkdtemp()
     file_path = f"{workdir}/output.txt"
+    objects = garage_client.list_objects(IMAGE_TRANSCRIPTIONS_BUCKET, prefix=f"{context_id}/outputs/")
     try:
-        objects = garage_client.list_objects(IMAGE_TRANSCRIPTIONS_BUCKET, prefix=f"{context_id}/outputs/")
         with open(file_path, "ab") as f:
             for obj in objects:
                 obj_to_write = garage_client.get_object(IMAGE_TRANSCRIPTIONS_BUCKET, obj.object_name)
@@ -240,13 +237,18 @@ async def get_results(context_id: str,
     if progress.total == 0:
         raise BadRequestError("TS-04", f"Data not found for context_id: {context_id}")
 
+    failure_reasons = []
+    if progress.failed > 0:
+        failure_reasons = await wfq_utils.get_failure_reasons(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
+
     if progress.done + progress.failed == progress.total:
         return TranscriptionResult(context_id=context_id,
                                    status=WFQTaskStatus.DONE,
                                    total=progress.total,
                                    done=progress.done,
                                    failed=progress.failed,
-                                   download_link=f"{settings.public_base_url}/llm-agents/v1/transcription-agent/{context_id}/download")
+                                   download_link=f"{settings.public_base_url}/llm-agents/v1/transcription-agent/{context_id}/download",
+                                   failure_reasons=failure_reasons)
 
     return TranscriptionResult(context_id=context_id,
                                status=WFQTaskStatus.RUNNING if
@@ -256,7 +258,8 @@ async def get_results(context_id: str,
                                total=progress.total,
                                done=progress.done,
                                failed=progress.failed,
-                               download_link="")
+                               download_link="",
+                               failure_reasons=failure_reasons)
 
 
 async def download_transcription_file(context_id: str, garage_client: Minio) -> AsyncIterator[bytes]:
