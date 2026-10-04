@@ -3,7 +3,7 @@ WFQ_LONGEST_IDLE_CLAIM = """
 WITH longest_idle_context AS (
     SELECT context_id, max(started_at) AS last_done
     FROM transcription_tasks
-    WHERE status = 'done'
+    WHERE started_at IS NOT NULL
     GROUP BY context_id
 )
 UPDATE {table_name} t
