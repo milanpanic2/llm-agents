@@ -5,6 +5,7 @@ from functools import partial
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from minio import Minio
 from openai import AsyncOpenAI
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -48,7 +49,6 @@ async def lifespan(app: FastAPI):
         app.state.garage_client = garage_client
 
         logger.info("Connecting to OpenAIChatModel")
-        # One shared client + connection pool, closed on shutdown via the stack.
         openai_client = await stack.enter_async_context(
             AsyncOpenAI(base_url=settings.llm_base_url, api_key=settings.llm_api_key)
         )
@@ -65,22 +65,7 @@ async def lifespan(app: FastAPI):
                 openai_client=openai_client.with_options(max_retries=1, timeout=120.0)),
         )
 
-        logger.info(f"Creating wfq engine, and starting {settings.max_concurrent_transcriptions} workers")
-        transcription_tasks_engine = WFQEngine(
-            transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
-            wfq_queries.WFQ_LONGEST_IDLE_CLAIM,
-            handler_func=partial(transcriptions_service.transcription_worker_handler_func,
-                                 model=transcription_model, garage_client=garage_client),
-            completion_func=partial(transcriptions_service.transcription_worker_completion_func,
-                                    garage_client=garage_client),
-        )
-        logger.info("ensuring task table exists")
-        await transcription_tasks_engine.create_table()
-        transcriptions_workers = [
-            asyncio.create_task(transcription_tasks_engine.worker(f"w{i}"))
-            for i in range(settings.max_concurrent_transcriptions)
-        ]
-        stack.push_async_callback(_cancel_workers, transcriptions_workers)
+        await init_wfq(garage_client, stack, transcription_model)
 
         # if not transcriptions_broker.is_worker_process:
         #     await transcriptions_broker.startup()
@@ -88,6 +73,46 @@ async def lifespan(app: FastAPI):
 
         logger.info("startup complete; serving requests")
         yield
+
+
+async def init_wfq(garage_client: Minio, stack: AsyncExitStack[bool | None], transcription_model: OpenAIChatModel):
+    # LICQ
+    logger.info(f"Creating longest idle context engine, and starting {settings.max_concurrent_transcriptions} "
+                f"workers")
+    licq_transcriptions = WFQEngine(
+        transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
+        wfq_queries.WFQ_LONGEST_IDLE_CLAIM,
+        handler_func=partial(transcriptions_service.transcription_worker_handler_func,
+                             model=transcription_model, garage_client=garage_client),
+        completion_func=partial(transcriptions_service.transcription_worker_completion_func,
+                                garage_client=garage_client),
+    )
+    logger.info("ensuring task table exists")
+    await licq_transcriptions.create_table()
+    licq_workers = [
+        asyncio.create_task(licq_transcriptions.worker(f"w{i}"))
+        for i in range(settings.max_concurrent_transcriptions)
+    ]
+    stack.push_async_callback(_cancel_workers, licq_workers)
+
+    # FIFO
+    logger.info(f"Creating first-in-first-out engine, and starting {settings.max_concurrent_transcriptions} "
+                f"workers")
+    fifo_transcriptions = WFQEngine(
+        transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
+        wfq_queries.WFQ_FIFO_CLAIM,
+        handler_func=partial(transcriptions_service.transcription_worker_handler_func,
+                             model=transcription_model, garage_client=garage_client),
+        completion_func=partial(transcriptions_service.transcription_worker_completion_func,
+                                garage_client=garage_client),
+    )
+    logger.info("ensuring task table exists")
+    await fifo_transcriptions.create_table()
+    fifo_workers = [
+        asyncio.create_task(fifo_transcriptions.worker(f"w{i}"))
+        for i in range(settings.max_concurrent_transcriptions)
+    ]
+    stack.push_async_callback(_cancel_workers, fifo_workers)
 
 
 app = FastAPI(
