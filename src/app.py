@@ -53,12 +53,13 @@ async def lifespan(app: FastAPI):
             AsyncOpenAI(base_url=settings.llm_base_url, api_key=settings.llm_api_key)
         )
 
-        # Image encoding alone is ~8s and requests slow down further under
-        # concurrent workers, so 15s timed out almost everything. Give it 120s.
-        # max_retries=0: the server is a saturated local GPU, not a flaky network
-        # - retrying just re-sends the big image and doubles the load that causes
-        # the timeouts. Stuck tasks are re-claimed by the WFQ engine instead.
         model = OpenAIChatModel(
+            settings.llm_model,
+            provider=OpenAIProvider(openai_client=openai_client),
+        )
+        app.state.model = model
+
+        transcription_model = OpenAIChatModel(
             settings.llm_model,
             provider=OpenAIProvider(
                 openai_client=openai_client.with_options(max_retries=0, timeout=120.0)),
@@ -69,7 +70,7 @@ async def lifespan(app: FastAPI):
             transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
             wfq_queries.WFQ_LONGEST_IDLE_CLAIM,
             handler_func=partial(transcriptions_service.transcription_worker_handler_func,
-                                 model=model, garage_client=garage_client),
+                                 model=transcription_model, garage_client=garage_client),
             completion_func=partial(transcriptions_service.transcription_worker_completion_func,
                                     garage_client=garage_client),
         )

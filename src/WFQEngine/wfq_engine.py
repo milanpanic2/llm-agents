@@ -63,7 +63,7 @@ class WFQEngine:
     def __init__(self, table_name: str, sql_claim: str,
                  handler_func: Callable[[WFQTaskData], Awaitable[None]],
                  completion_func: Callable[[WFQTaskData], Awaitable[None]] | None = None,
-                 retry_interval: float = 1):
+                 retry_interval: float = 3):
         logger.info("initializing WFQEngine table=%s", table_name)
         self.table_name = table_name
         self.sql_claim = sql_claim
