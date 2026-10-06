@@ -20,8 +20,16 @@ _PUBLIC_READ_BUCKET_POLICY = {
 
 
 def init_garage_client() -> Minio:
+    # One shared client serves every transcription worker (LICQ + FIFO engines,
+    # so 2 x max_concurrent_transcriptions) plus concurrent HTTP uploads -- all
+    # hitting the same garage host. urllib3 defaults to maxsize=1, so every call
+    # past the first opens a fresh connection and discards it ("connection pool
+    # is full"), churning TCP for nothing. Size the pool to the concurrency.
+    pool_maxsize = settings.max_concurrent_transcriptions * 2 + 8
     # Fail fast instead of hanging forever if the endpoint is unreachable.
     http_client = urllib3.PoolManager(
+        maxsize=pool_maxsize,
+        block=True,  # wait for a free connection instead of opening+discarding one
         timeout=urllib3.Timeout(connect=5.0, read=10.0),
         retries=urllib3.Retry(total=2, backoff_factor=0.2),
     )
