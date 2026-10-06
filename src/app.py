@@ -110,7 +110,7 @@ async def init_wfq(garage_client: Minio, stack: AsyncExitStack[bool | None], tra
     await fifo_transcriptions.create_table()
     fifo_workers = [
         asyncio.create_task(fifo_transcriptions.worker(f"w{i}"))
-        for i in range(settings.max_concurrent_transcriptions)
+        for i in range(1)
     ]
     stack.push_async_callback(_cancel_workers, fifo_workers)
 
