@@ -15,6 +15,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from src.config.settings import settings
 
+logger = logging.getLogger(__name__)
+
 OTEL_ENDPOINT = settings.otel_endpoint
 
 # trace/span ids injected by LoggingInstrumentor so Grafana can jump log <-> trace
@@ -62,6 +64,15 @@ def export_metrics_to_prometheus_via_alloy(resource: Resource):
     )
     meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     metrics.set_meter_provider(meter_provider)
+
+    # --- TEMP DIAGNOSTIC: prove metrics export end-to-end, independent of app traffic.
+    # warning-level so it shows even before stdout logging is fully set up.
+    active = metrics.get_meter_provider()
+    logger.warning("METRICS DIAG requested=%s active=%s endpoint=%s",
+                   type(meter_provider).__name__, type(active).__name__, OTEL_ENDPOINT)
+    metrics.get_meter("diag").create_counter("telemetry_selftest").add(1)
+    meter_provider.force_flush(timeout_millis=5000)
+    logger.warning("METRICS DIAG self-test counter emitted + flushed")
 
 
 def setup_stdout_logging():
