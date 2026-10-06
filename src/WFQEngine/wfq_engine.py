@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 from pydantic import BaseModel
 from sqlalchemy import RowMapping, text
 
+from src.config import metrics
 from src.database.connection import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
@@ -137,17 +139,25 @@ class WFQEngine:
         stuck in 'running' because of an error we didn't anticipate."""
 
         log = _TaskLog(logger, {"task_id": task["id"], "context_id": task["context_id"]})
+        attrs = {"table": self.table_name}
+        metrics.WFQ_TASKS_INFLIGHT.add(1, attrs)
+        started = time.perf_counter()
         try:
             await self.handler_func(WFQTaskData(**task))
         except Exception as exc:
             reason = repr(exc)
             log.warning("task failed: %s", reason, exc_info=exc)
+            metrics.WFQ_TASKS_TOTAL.add(1, {**attrs, "status": "failed"})
             counts = await self._update_task_state_and_get_count(
                 task["id"], task["context_id"], WFQTaskStatus.FAILED, reason)
         else:
+            metrics.WFQ_TASKS_TOTAL.add(1, {**attrs, "status": "done"})
             counts = await self._update_task_state_and_get_count(
                 task["id"], task["context_id"], WFQTaskStatus.DONE)
             log.info("task done (%s/%s in context)", counts.done + counts.failed, counts.total)
+        finally:
+            metrics.WFQ_TASKS_INFLIGHT.add(-1, attrs)
+            metrics.WFQ_TASK_DURATION.record(time.perf_counter() - started, attrs)
 
         if counts.done + counts.failed == counts.total and self.completion_func is not None:
             try:

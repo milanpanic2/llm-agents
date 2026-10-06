@@ -17,6 +17,7 @@ from pydantic_ai.models import Model
 from sqlalchemy.ext.asyncio import AsyncSession
 from urllib3 import BaseHTTPResponse
 
+from src.config import metrics
 from src.config.settings import settings
 from src.errors import AppError, BadRequestError
 from src.garage.buckets import IMAGE_TRANSCRIPTIONS_BUCKET
@@ -69,11 +70,17 @@ transcriptions_agent = Agent(
 )
 
 async def convert_to_text(model: Model, image_bytes: bytes, media_type: str) -> str:
-    result = await transcriptions_agent.run(
-        ["Transcribe the text in this image.",
-         BinaryContent(data=image_bytes, media_type=media_type)],
-        model=model,
-    )
+    model_name = getattr(model, "model_name", settings.llm_model)
+    with metrics.record_duration(metrics.LLM_REQUEST_DURATION, {"model": model_name}):
+        result = await transcriptions_agent.run(
+            ["Transcribe the text in this image.",
+             BinaryContent(data=image_bytes, media_type=media_type)],
+            model=model,
+        )
+
+    usage = result.usage  # property in pydantic-ai 2.17, not a method
+    metrics.LLM_TOKENS_TOTAL.add(usage.input_tokens or 0, {"model": model_name, "direction": "input"})
+    metrics.LLM_TOKENS_TOTAL.add(usage.output_tokens or 0, {"model": model_name, "direction": "output"})
 
     return result.output
 
