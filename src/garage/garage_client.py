@@ -25,7 +25,7 @@ def init_garage_client() -> Minio:
     # hitting the same garage host. urllib3 defaults to maxsize=1, so every call
     # past the first opens a fresh connection and discards it ("connection pool
     # is full"), churning TCP for nothing. Size the pool to the concurrency.
-    pool_maxsize = settings.max_concurrent_transcriptions * 2 + 8
+    pool_maxsize = settings.max_licq_concurrent_transcriptions * 2 + 8
     # Fail fast instead of hanging forever if the endpoint is unreachable.
     http_client = urllib3.PoolManager(
         maxsize=pool_maxsize,

@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     app_port: int = 8000
     public_base_url: str = "http://localhost:8000"
     debug: bool = True
-    max_concurrent_transcriptions: int = 2
+    max_licq_concurrent_transcriptions: int = 2
+    max_fifo_concurrent_transcriptions: int = 1
     postgresql_host: str = "postgresql"
     postgresql_port: str = "5432"
     postgresql_db_name: str = "llm-agents"

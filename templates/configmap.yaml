@@ -11,7 +11,8 @@ data:
   PUBLIC_BASE_URL: {{ printf "https://%s" .Values.ingress.host | quote }}
   DEBUG: {{ .Values.config.debug | quote }}
   ENVIRONMENT: {{ .Values.config.environment | quote }}
-  MAX_CONCURRENT_TRANSCRIPTIONS: {{ .Values.config.maxConcurrentTranscriptions | quote }}
+  MAX_LICQ_CONCURRENT_TRANSCRIPTIONS: {{ .Values.config.maxLicqConcurrentTranscriptions | quote }}
+  MAX_FIFO_CONCURRENT_TRANSCRIPTIONS: {{ .Values.config.maxFifoConcurrentTranscriptions | quote }}
   JWT_ALGORITHM: {{ .Values.config.jwtAlgorithm | quote }}
   JWT_EXPIRATION_MINUTES: {{ .Values.config.jwtExpirationMinutes | quote }}
   POSTGRESQL_HOST: {{ .Values.database.host | quote }}

@@ -77,7 +77,7 @@ async def lifespan(app: FastAPI):
 
 async def init_wfq(garage_client: Minio, stack: AsyncExitStack[bool | None], transcription_model: OpenAIChatModel):
     # LICQ
-    logger.info(f"Creating longest idle context engine, and starting {settings.max_concurrent_transcriptions} "
+    logger.info(f"Creating longest idle context engine, and starting {settings.max_licq_concurrent_transcriptions} "
                 f"workers")
     licq_transcriptions = WFQEngine(
         transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
@@ -91,12 +91,12 @@ async def init_wfq(garage_client: Minio, stack: AsyncExitStack[bool | None], tra
     await licq_transcriptions.create_table()
     licq_workers = [
         asyncio.create_task(licq_transcriptions.worker(f"w{i}"))
-        for i in range(settings.max_concurrent_transcriptions)
+        for i in range(settings.max_licq_concurrent_transcriptions)
     ]
     stack.push_async_callback(_cancel_workers, licq_workers)
 
     # FIFO
-    logger.info(f"Creating first-in-first-out engine, and starting {settings.max_concurrent_transcriptions} "
+    logger.info(f"Creating first-in-first-out engine, and starting {settings.max_licq_concurrent_transcriptions} "
                 f"workers")
     fifo_transcriptions = WFQEngine(
         transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
@@ -110,7 +110,7 @@ async def init_wfq(garage_client: Minio, stack: AsyncExitStack[bool | None], tra
     await fifo_transcriptions.create_table()
     fifo_workers = [
         asyncio.create_task(fifo_transcriptions.worker(f"w{i}"))
-        for i in range(1)
+        for i in range(settings.max_fifo_concurrent_transcriptions)
     ]
     stack.push_async_callback(_cancel_workers, fifo_workers)
 

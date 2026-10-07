@@ -22,7 +22,8 @@ config:
   appPort: "8000"
   debug: "false"
   environment: "default"
-  maxConcurrentTranscriptions: 2
+  maxLicqConcurrentTranscriptions: 2
+  maxFifoConcurrentTranscriptions: 1
   jwtAlgorithm: "HS256"
   jwtExpirationMinutes: "1440"
   otelEndpoint: "http://alloy.monitoring.svc.cluster.local:4317"
