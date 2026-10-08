@@ -7,12 +7,13 @@ import uuid
 import zipfile
 from collections.abc import AsyncIterator, Iterable, Iterator
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException, UploadFile
 from minio import Minio, S3Error
 from minio.deleteobjects import DeleteObject
 from pydantic import BaseModel
-from pydantic_ai import Agent, BinaryContent
+from pydantic_ai import Agent, BinaryContent, AgentRunResult, RunUsage
 from pydantic_ai.models import Model
 from sqlalchemy.ext.asyncio import AsyncSession
 from urllib3 import BaseHTTPResponse
@@ -82,7 +83,16 @@ async def convert_to_text(model: Model, image_bytes: bytes, media_type: str) -> 
     metrics.LLM_TOKENS_TOTAL.add(usage.input_tokens or 0, {"model": model_name, "direction": "input"})
     metrics.LLM_TOKENS_TOTAL.add(usage.output_tokens or 0, {"model": model_name, "direction": "output"})
 
+    await check_model_response_reason(result)
+
     return result.output
+
+
+async def check_model_response_reason(result: AgentRunResult[Any]):
+    finish_reason = result.response.finish_reason
+    if finish_reason == "length":
+        raise AppError("TS-03",
+                       f"Transcription truncated (finish_reason=length, output={result.usage.output_tokens})")
 
 
 class TranscriptionTaskData(BaseModel):
@@ -116,12 +126,12 @@ async def queue_images_for_transcript(uploads: Iterable[UploadFile],
         except (OSError, ValueError, S3Error) as exc:
             logger.exception("upload failed context_id=%s object_name=%s; cleaning up", context_id, object_name)
             await clean_context_data(context_id, IMAGE_TRANSCRIPTIONS_BUCKET, garage_client)
-            raise AppError("TS-03", f"Failed to upload file {object_name}") from exc
+            raise AppError("TS-01", f"Failed to upload file {object_name}") from exc
         suffix = Path(filename).suffix.lower()
         if suffix not in _SUFFIX_TO_MEDIA:
             logger.warning("unsupported file type context_id=%s filename=%s; cleaning up", context_id, filename)
             await clean_context_data(context_id, IMAGE_TRANSCRIPTIONS_BUCKET, garage_client)
-            raise BadRequestError("TS-05", f"Unsupported file type: {filename}")
+            raise BadRequestError("TS-02", f"Unsupported file type: {filename}")
         media_type = _SUFFIX_TO_MEDIA[suffix]
         wfq_tasks.append(WFQTaskData(context_id=context_id,
                                      payload=TranscriptionTaskData(object_name=object_name, media_type=media_type,

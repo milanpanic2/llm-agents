@@ -70,9 +70,6 @@ async def get_results(context_id: str,
     return await transcriptions_service.get_results(context_id, session)
 
 
-# TODO: add retry failed
-
-
 @router.get("/transcription-agent/{context_id}/download")
 async def download_transcription_file(context_id: str,
                                       garage_client = Depends(get_garage_client)) -> StreamingResponse:
@@ -83,9 +80,10 @@ async def download_transcription_file(context_id: str,
         headers={"Content-Disposition": f'attachment; filename="{context_id}.txt"'})
 
 
-@router.post("/transcription-agent/{context_id}/retry_failed")
+@router.patch("/transcription-agent/{context_id}/retry_failed")
 async def retry_failed(context_id: str,
                        session = Depends(get_db)):
+    await transcriptions_service.retry_failed_transcriptions(session, context_id)
     return None
 
 
