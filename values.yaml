@@ -22,7 +22,7 @@ config:
   appPort: "8000"
   debug: "false"
   environment: "default"
-  maxLicqConcurrentTranscriptions: 3
+  maxLicqConcurrentTranscriptions: 2
   maxFifoConcurrentTranscriptions: 2
   jwtAlgorithm: "HS256"
   jwtExpirationMinutes: "1440"
