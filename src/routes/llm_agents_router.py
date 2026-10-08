@@ -83,6 +83,12 @@ async def download_transcription_file(context_id: str,
         headers={"Content-Disposition": f'attachment; filename="{context_id}.txt"'})
 
 
+@router.post("/transcription-agent/{context_id}/retry_failed")
+async def retry_failed(context_id: str,
+                       session = Depends(get_db)):
+    return None
+
+
 # @router.post("/image-text-to-text/plain", response_class=PlainTextResponse)
 # async def image_text_to_text_plain(
 #     files: list[UploadFile] = File(...),

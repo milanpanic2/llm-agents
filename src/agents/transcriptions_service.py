@@ -282,6 +282,10 @@ async def download_transcription_file(context_id: str, garage_client: Minio) -> 
         await asyncio.to_thread(file_object.release_conn)
 
 
+async def retry_failed_transcriptions(session: AsyncSession, context_id: str):
+    await wfq_utils.retry_all_failed_tasks(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
+
+
 async def save_file_to_disk(zip_upload: UploadFile, work_dir: str) -> str:
     dest = Path(work_dir) / (zip_upload.filename or "upload.zip")
     await zip_upload.seek(0)

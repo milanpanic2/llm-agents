@@ -35,3 +35,10 @@ async def get_failure_reasons(session: AsyncSession, table_name: str, context_id
     await session.commit()
     return [FailureReasons(**row) for row in rows]
 
+
+async def retry_all_failed_tasks(session: AsyncSession, table_name: str, context_id: str):
+    sql = f"""UPDATE {table_name}
+              SET status = 'pending'
+              WHERE context_id = {context_id}"""
+    await session.execute(text(sql))
+    await session.commit()
