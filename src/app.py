@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from minio import Minio
 from openai import AsyncOpenAI
-from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 from starlette.requests import Request
 
@@ -63,6 +63,10 @@ async def lifespan(app: FastAPI):
             settings.llm_model,
             provider=OpenAIProvider(
                 openai_client=openai_client.with_options(max_retries=1, timeout=120.0)),
+            settings=OpenAIChatModelSettings(
+                temperature=0.0,
+                extra_body={"chat_template_kwargs": {"enable_thinking": False}}, # disable thinking of this model
+            )
         )
 
         await init_wfq(garage_client, stack, transcription_model)

@@ -30,7 +30,8 @@ async def get_progress(session: AsyncSession, table_name: str, context_id: str) 
 async def get_failure_reasons(session: AsyncSession, table_name: str, context_id: str) -> list[FailureReasons]:
     sql = f"""SELECT id, failure_reason
               FROM {table_name}
-              WHERE context_id = :context_id AND status = 'failed'"""
+              WHERE context_id = :context_id AND status = 'failed'
+              ORDER BY finished_at DESC"""
     rows = (await session.execute(text(sql), {"context_id": context_id})).mappings().all()
     await session.commit()
     return [FailureReasons(**row) for row in rows]
