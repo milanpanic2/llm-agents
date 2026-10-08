@@ -28,7 +28,7 @@ config:
   jwtExpirationMinutes: "1440"
   otelEndpoint: "http://alloy.monitoring.svc.cluster.local:4317"
   crwBase: "http://crw.crw.svc.cluster.local:3000"
-  llmBaseUrl: "http://llama-server.llama-server.svc.cluster.local:8090"
+  llmBaseUrl: "http://llama-server.llama-server.svc.cluster.local:8090/v1"
   llmModel: "./Qwen3.6-35B-A3B-UD-IQ4_NL.gguf"
   llmApiKey: "local"
   valkeyServiceUrl: "valkey.valkey.svc.cluster.local"
@@ -44,10 +44,10 @@ database:
 
 resources:
   requests:
-    memory: "256Mi"
+    memory: "512Mi"
     cpu: "50m"
   limits:
-    memory: "512Mi"
+    memory: "768Mi"
     cpu: "250m"
 
 probes:

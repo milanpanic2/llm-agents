@@ -27,6 +27,13 @@ async def get_progress(session: AsyncSession, table_name: str, context_id: str) 
     return TaskContextProgress(**counts)
 
 
+async def check_if_context_finished(progress: TaskContextProgress) -> bool:
+    if progress.done + progress.failed == progress.total:
+        return True
+    else:
+        return False
+
+
 async def get_failure_reasons(session: AsyncSession, table_name: str, context_id: str) -> list[FailureReasons]:
     sql = f"""SELECT id, failure_reason
               FROM {table_name}
@@ -39,7 +46,7 @@ async def get_failure_reasons(session: AsyncSession, table_name: str, context_id
 
 async def retry_all_failed_tasks(session: AsyncSession, table_name: str, context_id: str):
     sql = f"""UPDATE {table_name}
-              SET status = 'pending'
-              WHERE context_id = :context_id"""
+              SET status = 'pending', failure_reason = '', started_at = NULL, finished_at = NULL
+              WHERE context_id = :context_id AND status = 'failed'"""
     await session.execute(text(sql), {"context_id": context_id})
     await session.commit()

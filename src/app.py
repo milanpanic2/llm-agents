@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import partial
 
@@ -34,6 +35,18 @@ async def _cancel_workers(workers: list[asyncio.Task]):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_telemetry(app, sync_engine)
+
+    # Cap the default thread pool used by asyncio.to_thread for blocking (sync minio) I/O.
+    # Default is min(32, os.cpu_count()+4), sized to the node's cores (ignores our cgroup CPU
+    # limit), which spawns far more threads than needed and lets each prime its own glibc
+    # malloc arena, ratcheting RSS. 4 is ample for our ~3 concurrent WFQ workers. (# of workers + 1)
+    loop = asyncio.get_running_loop()
+    max_blocking_io = (
+            settings.max_licq_concurrent_transcriptions
+            + settings.max_fifo_concurrent_transcriptions
+            + 8  # headroom for fastapi
+    )
+    loop.set_default_executor(ThreadPoolExecutor(max_workers=max_blocking_io, thread_name_prefix="to_thread"))
 
     logger.info("FastAPI started successfully. Starting init work...")
     init_db()

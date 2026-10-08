@@ -122,7 +122,7 @@ async def queue_images_for_transcript(uploads: Iterable[UploadFile],
             await asyncio.to_thread(garage_client.put_object, IMAGE_TRANSCRIPTIONS_BUCKET,
                                     f"{context_id}/{object_name}", upload.file,
                                     content_type="application/octet-stream",
-                                    part_size=_MIN_PART, length=-1)
+                                    length=upload.size)
         except (OSError, ValueError, S3Error) as exc:
             logger.exception("upload failed context_id=%s object_name=%s; cleaning up", context_id, object_name)
             await clean_context_data(context_id, IMAGE_TRANSCRIPTIONS_BUCKET, garage_client)
@@ -293,7 +293,12 @@ async def download_transcription_file(context_id: str, garage_client: Minio) -> 
 
 
 async def retry_failed_transcriptions(session: AsyncSession, context_id: str):
-    await wfq_utils.retry_all_failed_tasks(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
+    progress = await wfq_utils.get_progress(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
+    finished = await wfq_utils.check_if_context_finished(progress)
+    if finished:
+        await wfq_utils.retry_all_failed_tasks(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
+    else:
+        raise BadRequestError("TS-04", f"Context is not in a finished state. Progress: {progress}")
 
 
 async def save_file_to_disk(zip_upload: UploadFile, work_dir: str) -> str:
