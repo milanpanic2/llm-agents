@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
             provider=OpenAIProvider(
                 openai_client=openai_client.with_options(max_retries=1, timeout=120.0)),
             settings=OpenAIChatModelSettings(
-                max_tokens=92, # TODO change
+                max_tokens=600,
                 temperature=0.0,
                 extra_body={"chat_template_kwargs": {"enable_thinking": False}}, # disable thinking of this model
             )
