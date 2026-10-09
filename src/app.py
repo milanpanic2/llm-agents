@@ -34,8 +34,6 @@ async def _cancel_workers(workers: list[asyncio.Task]):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_telemetry(app, sync_engine)
-
     # Cap the default thread pool used by asyncio.to_thread for blocking (sync minio) I/O.
     # Default is min(32, os.cpu_count()+4), sized to the node's cores (ignores our cgroup CPU
     # limit), which spawns far more threads than needed and lets each prime its own glibc
@@ -136,6 +134,9 @@ async def init_wfq(garage_client: Minio, stack: AsyncExitStack[bool | None], tra
 app = FastAPI(
     title="LLM Agents Service", description="LLM agents service for running llm taskiq with custom built tools", version="0.1.0", lifespan=lifespan
 )
+
+
+init_telemetry(app, sync_engine)
 
 
 app.include_router(router)
