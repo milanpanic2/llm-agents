@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 OTEL_ENDPOINT = settings.otel_endpoint
 
-# trace/span ids injected by LoggingInstrumentor so Grafana can jump log <-> trace
 _LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] trace=%(otelTraceID)s span=%(otelSpanID)s %(message)s"
 
 
@@ -65,8 +64,6 @@ def export_metrics_to_prometheus_via_alloy(resource: Resource):
     meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     metrics.set_meter_provider(meter_provider)
 
-    # --- TEMP DIAGNOSTIC: prove metrics export end-to-end, independent of app traffic.
-    # warning-level so it shows even before stdout logging is fully set up.
     active = metrics.get_meter_provider()
     logger.warning("METRICS DIAG requested=%s active=%s endpoint=%s",
                    type(meter_provider).__name__, type(active).__name__, OTEL_ENDPOINT)
@@ -81,13 +78,10 @@ def setup_stdout_logging():
     root = logging.getLogger()
     root.handlers.clear()
     handler = logging.StreamHandler(sys.stdout)
-    # otelTraceID/otelSpanID are injected by LoggingInstrumentor, but records created
-    # outside its factory (early startup, C-level) won't have them -> default to "0"
-    # so the formatter never raises KeyError.
     handler.setFormatter(logging.Formatter(_LOG_FORMAT, defaults={"otelTraceID": "0", "otelSpanID": "0"}))
     root.addHandler(handler)
     root.setLevel(logging.INFO)
-    LoggingInstrumentor().instrument()
+    LoggingInstrumentor().instrument(inject_trace_context=True, enable_log_auto_instrumentation=False)
 
 
 def instrument_fastapi_and_sqlalchemy(app, db_engine):

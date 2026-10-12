@@ -5,6 +5,7 @@ FROM python:3.13-slim
 # returning it to the OS, which ratchets RSS until the pod is OOM-killed.
 #   MALLOC_ARENA_MAX=2       -> cap arenas (vs host-derived default) to limit hoarding
 #   MALLOC_TRIM_THRESHOLD_   -> actually release freed regions >100KB back to the kernel
+# for standalone deployment of workers jemalloc can be used for improved memory freeing
 ENV MALLOC_ARENA_MAX=2 \
     MALLOC_TRIM_THRESHOLD_=100000
 

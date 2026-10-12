@@ -92,7 +92,7 @@ async def lifespan(app: FastAPI):
 
 
 async def init_wfq(garage_client: Minio, stack: AsyncExitStack[bool | None], transcription_model: OpenAIChatModel):
-    # LICQ
+    # LICQ - longest idle context queueing
     logger.info(f"Creating longest idle context engine, and starting {settings.max_licq_concurrent_transcriptions} "
                 f"workers")
     licq_transcriptions = WFQEngine(

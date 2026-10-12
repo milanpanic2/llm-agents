@@ -21,8 +21,9 @@ def ensure_databases(db_names: list[str]):
 
 
 def main():
-    ensure_databases(settings.postgresql_db_name)
-    uvicorn.run(app="src.app:app", host=settings.app_host, port=settings.app_port, reload=settings.debug)
+    ensure_databases([settings.postgresql_db_name])
+    uvicorn.run(app="src.app:app", host=settings.app_host, port=settings.app_port,
+                reload=settings.debug, access_log=False)
 
 
 if __name__ == "__main__":
