@@ -175,7 +175,7 @@ async def queue_images_for_transcript(uploads: Iterable[UploadFile],
                                                                    original_file_name=filename,
                                                                    file_path=f"{context_id}/{object_name}").model_dump()))
 
-    await wfq_utils.add_tasks_bulk(session, TRANSCRIPTION_TASKS_TABLE_NAME, wfq_tasks)
+    await wfq_utils.add_tasks_bulk(session, TRANSCRIPTION_TASKS_TABLE_NAME, wfq_tasks, user_id)
     logger.info("queued context_id=%s tasks=%d", context_id, len(wfq_tasks))
 
     return context_id
