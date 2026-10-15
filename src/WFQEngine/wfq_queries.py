@@ -19,7 +19,7 @@ WHERE t.id = (
     FOR UPDATE OF t2 SKIP LOCKED
     LIMIT 1
 )
-RETURNING t.id, t.context_id, t.payload;"""
+RETURNING t.*;"""
 
 
 WFQ_FIFO_CLAIM = """
@@ -34,4 +34,4 @@ WHERE t.id = (
     FOR UPDATE OF t2 SKIP LOCKED
     LIMIT 1
 )
-RETURNING t.id, t.context_id, t.payload;"""
+RETURNING t.*;"""

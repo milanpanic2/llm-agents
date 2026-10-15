@@ -191,7 +191,7 @@ class WFQEngine:
                     FOR UPDATE OF t2 SKIP LOCKED
                     LIMIT 1
                 )
-                RETURNING t.id, t.context_id, t.payload;"""))).mappings().first()
+                RETURNING t.*;"""))).mappings().first()
             await session.commit()
         return task
 
