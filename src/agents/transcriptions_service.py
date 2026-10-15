@@ -25,7 +25,8 @@ from src.config.settings import settings
 from src.errors import AppError, BadRequestError, NotFoundError
 from src.garage.buckets import IMAGE_TRANSCRIPTIONS_BUCKET
 from src.WFQEngine import wfq_utils
-from src.WFQEngine.wfq_engine import FailureReasons, WFQTaskData, WFQTaskStatus, TaskContextProgress
+from src.WFQEngine.wfq_engine import FailureReasons, TaskContextProgress
+from src.WFQEngine.wfq_models import WFQTask, WFQTaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -169,11 +170,11 @@ async def queue_images_for_transcript(uploads: Iterable[UploadFile],
 
         await _upload_image_to_object_storage(context_id, garage_client, object_name, upload)
 
-        wfq_tasks.append(WFQTaskData(context_id=context_id,
-                                     created_by=user_id,
-                                     payload=TranscriptionTaskData(object_name=object_name,
-                                                                   original_file_name=filename,
-                                                                   file_path=f"{context_id}/{object_name}").model_dump()))
+        wfq_tasks.append(WFQTask(context_id=context_id,
+                                 created_by=user_id,
+                                 payload=TranscriptionTaskData(object_name=object_name,
+                                                               original_file_name=filename,
+                                                               file_path=f"{context_id}/{object_name}").model_dump()))
 
     await wfq_utils.add_tasks_bulk(session, TRANSCRIPTION_TASKS_TABLE_NAME, wfq_tasks, user_id)
     logger.info("queued context_id=%s tasks=%d", context_id, len(wfq_tasks))
@@ -194,7 +195,7 @@ async def _upload_image_to_object_storage(context_id: str, garage_client: Minio,
         raise AppError("TS-01", f"Failed to upload file {object_name}") from exc
 
 
-async def transcription_worker_handler_func(wfq_task_data: WFQTaskData,
+async def transcription_worker_handler_func(wfq_task_data: WFQTask,
                                             model: Model,
                                             garage_client: Minio):
     """Handler function called from workers dedicated to transcription taskiq.
@@ -227,7 +228,7 @@ async def transcription_worker_handler_func(wfq_task_data: WFQTaskData,
                                                          content_type="text/plain; charset=utf-8")
 
 
-async def transcription_worker_completion_func(wfq_task_data: WFQTaskData, garage_client: Minio):
+async def transcription_worker_completion_func(wfq_task_data: WFQTask, garage_client: Minio):
     logger.info("context complete, merging transcripts context_id=%s", wfq_task_data.context_id)
     await asyncio.to_thread(_merge_and_upload_transcripts, wfq_task_data.context_id, garage_client)
 

@@ -2,14 +2,14 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from enum import StrEnum
-from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import RowMapping, text
 
 from src.config import metrics
-from src.database.connection import AsyncSessionLocal
+from src.database.connection import AsyncSessionLocal, async_engine
+from src.database.models import Base
+from src.WFQEngine.wfq_models import WFQTask, WFQTaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -21,43 +21,6 @@ class _TaskLog(logging.LoggerAdapter):
     def process(self, msg, kwargs):
         extra = self.extra or {}
         return f"[task={extra.get('task_id')} ctx={extra.get('context_id')}] {msg}", kwargs
-
-
-class WFQTaskStatus(StrEnum):
-    PENDING = "pending"
-    RUNNING = "running"
-    DONE = "done"
-    FAILED = "failed"
-
-
-class WFQTaskData(BaseModel):
-    id: str = ""
-    context_id: str
-    payload: dict[str, Any]
-    failure_reason: str = ""
-    created_by: str
-
-
-CREATE_WFQ_TABLE = """
-CREATE TABLE IF NOT EXISTS {table_name} (
-    id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    context_id     TEXT NOT NULL,
-    status         VARCHAR(20) NOT NULL DEFAULT 'pending'
-                   CHECK (status IN ('pending', 'running', 'done', 'failed')),
-    created_by     TEXT NOT NULL,
-                   
-    payload        JSONB NOT NULL,
-    failure_reason TEXT,
-    
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    started_at     TIMESTAMPTZ,
-    finished_at    TIMESTAMPTZ,
-    
-    priority       VARCHAR(50) NOT NULL DEFAULT 'standard'
-);"""
-
-
-CREATE_WFQ_CONTEXT_INDEX = "CREATE INDEX IF NOT EXISTS {table_name}_context_id_idx ON {table_name} (context_id);"
 
 
 class TaskContextProgress(BaseModel):
@@ -73,8 +36,8 @@ class FailureReasons(BaseModel):
 
 class WFQEngine:
     def __init__(self, table_name: str, sql_claim: str,
-                 handler_func: Callable[[WFQTaskData], Awaitable[None]],
-                 completion_func: Callable[[WFQTaskData], Awaitable[None]] | None = None,
+                 handler_func: Callable[[WFQTask], Awaitable[None]],
+                 completion_func: Callable[[WFQTask], Awaitable[None]] | None = None,
                  retry_interval: float = 5):
         logger.info("initializing WFQEngine table=%s", table_name)
         self.table_name = table_name
@@ -85,13 +48,12 @@ class WFQEngine:
 
 
     async def create_table(self):
-        """Create the needed postgresql table for task tracking"""
+        """Create the needed postgresql table for task tracking. Schema is defined once on the
+        WFQTask model; this just materializes it (idempotent)."""
 
         logger.info("creating table=%s", self.table_name)
-        async with AsyncSessionLocal() as session:
-            await session.execute(text(CREATE_WFQ_TABLE.format(table_name=self.table_name)))
-            await session.execute(text(CREATE_WFQ_CONTEXT_INDEX.format(table_name=self.table_name)))
-            await session.commit()
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
 
     async def start_concurrent_workers(self, count: int):
@@ -147,7 +109,7 @@ class WFQEngine:
         metrics.WFQ_TASKS_INFLIGHT.add(1, attrs)
         started = time.perf_counter()
         try:
-            await self.handler_func(WFQTaskData(**task))
+            await self.handler_func(WFQTask(**task))
         except Exception as exc:
             reason = repr(exc)
             log.warning("task failed: %s", reason, exc_info=exc)
@@ -165,7 +127,7 @@ class WFQEngine:
 
         if counts.done + counts.failed == counts.total and self.completion_func is not None:
             try:
-                await self.completion_func(WFQTaskData(**task))
+                await self.completion_func(WFQTask(**task))
                 log.info("context complete")
             except Exception as exc:
                 reason = repr(exc)

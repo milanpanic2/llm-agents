@@ -3,10 +3,11 @@ import json
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.WFQEngine.wfq_engine import FailureReasons, TaskContextProgress, WFQTaskData
+from src.WFQEngine.wfq_engine import FailureReasons, TaskContextProgress
+from src.WFQEngine.wfq_models import WFQTask
 
 
-async def add_tasks_bulk(session: AsyncSession, table_name: str, wfq_tasks: list[WFQTaskData],
+async def add_tasks_bulk(session: AsyncSession, table_name: str, wfq_tasks: list[WFQTask],
                          user_id: str):
     # payload is a dict in memory; the asyncpg jsonb codec encodes a JSON *string*, so dump it here.
     sql = f"""INSERT INTO {table_name} (context_id, status, payload, created_by)
