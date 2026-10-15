@@ -31,15 +31,6 @@ def init_telemetry(app, db_engine):
     instrument_fastapi_and_sqlalchemy(app, db_engine)
 
 
-def init_worker_telemetry(db_engine):
-    """Telemetry for the standalone worker process (no FastAPI app)."""
-    resource = _resource()
-    export_traces_to_tempo_via_alloy(resource)
-    export_metrics_to_prometheus_via_alloy(resource)
-    setup_stdout_logging()
-    SQLAlchemyInstrumentor().instrument(engine=db_engine)
-
-
 def _resource() -> Resource:
     return Resource.create({
         SERVICE_NAME: settings.service_name,
@@ -63,13 +54,7 @@ def export_metrics_to_prometheus_via_alloy(resource: Resource):
     )
     meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     metrics.set_meter_provider(meter_provider)
-
-    active = metrics.get_meter_provider()
-    logger.warning("METRICS DIAG requested=%s active=%s endpoint=%s",
-                   type(meter_provider).__name__, type(active).__name__, OTEL_ENDPOINT)
-    metrics.get_meter("diag").create_counter("telemetry_selftest").add(1)
     meter_provider.force_flush(timeout_millis=5000)
-    logger.warning("METRICS DIAG self-test counter emitted + flushed")
 
 
 def setup_stdout_logging():

@@ -50,3 +50,13 @@ async def retry_all_failed_tasks(session: AsyncSession, table_name: str, context
               WHERE context_id = :context_id AND status = 'failed'"""
     await session.execute(text(sql), {"context_id": context_id})
     await session.commit()
+
+
+async def get_context_created_by(session: AsyncSession, table_name: str, context_id: str):
+    sql = f"""SELECT created_by
+              FROM {table_name}
+              WHERE context_id = :context_id
+              LIMIT 1"""
+    row = (await session.execute(text(sql), {"context_id": context_id})).mappings().one_or_none()
+    await session.commit()
+    return row["created_by"] if row is not None else None

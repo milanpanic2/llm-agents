@@ -5,38 +5,36 @@ import shutil
 import tempfile
 import uuid
 import zipfile
-from collections.abc import AsyncIterator, Iterable, Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
+from zipfile import ZipFile
 
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from minio import Minio, S3Error
 from minio.deleteobjects import DeleteObject
 from pydantic import BaseModel
-from pydantic_ai import Agent, BinaryContent, AgentRunResult, RunUsage
+from pydantic_ai import Agent, BinaryContent, AgentRunResult
 from pydantic_ai.models import Model
 from sqlalchemy.ext.asyncio import AsyncSession
 from urllib3 import BaseHTTPResponse
+from PIL import Image
 
 from src.config import metrics
 from src.config.settings import settings
-from src.errors import AppError, BadRequestError
+from src.errors import AppError, BadRequestError, NotFoundError
 from src.garage.buckets import IMAGE_TRANSCRIPTIONS_BUCKET
 from src.WFQEngine import wfq_utils
-from src.WFQEngine.wfq_engine import FailureReasons, WFQTaskData, WFQTaskStatus
+from src.WFQEngine.wfq_engine import FailureReasons, WFQTaskData, WFQTaskStatus, TaskContextProgress
 
 logger = logging.getLogger(__name__)
-
-TASK_TRANSCRIPTION = "taskiq:transcription"
 
 TRANSCRIPTION_TASKS_TABLE_NAME = "transcription_tasks"
 
 _ZIP_SUFIX = (".zip",)
 
-_SUPPORTED_IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png")
-_SUFFIX_TO_MEDIA = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
-
-_MIN_PART = 10 * 1024 * 1024
+_SUPPORTED_IMAGE_FORMATS = ["JPEG", "PNG"]
+_FORMAT_TO_MEDIA_TYPE = {"JPEG": "image/jpeg", "PNG": "image/png"}
 
 _CHUNK_SIZE = 2 * 1024 * 1024
 
@@ -70,7 +68,9 @@ transcriptions_agent = Agent(
 )
 
 
-async def convert_to_text(model: Model, image_bytes: bytes, media_type: str) -> str:
+async def convert_to_text(model: Model, image_bytes: bytes) -> str:
+    with Image.open(io.BytesIO(image_bytes)) as i:
+        media_type = _FORMAT_TO_MEDIA_TYPE[i.format]
     model_name = getattr(model, "model_name", settings.llm_model)
     with metrics.record_duration(metrics.LLM_REQUEST_DURATION, {"model": model_name}):
         result = await transcriptions_agent.run(
@@ -97,9 +97,61 @@ async def check_model_response_reason(result: AgentRunResult[Any]):
 
 class TranscriptionTaskData(BaseModel):
     object_name: str
-    media_type: str
     file_path: str
     original_file_name: str
+
+
+async def queue_images_for_transcript_zip(zip_upload: UploadFile,
+                                          session: AsyncSession,
+                                          garage_client: Minio,
+                                          user_id: str) -> str:
+    """Upload file list to garage, and add transcription taskiq for workers with needed jsonb data for handler function"""
+    logger.info("opening zip for transcription filename=%s user_id=%s", zip_upload.filename, user_id)
+    try:
+        zf = await asyncio.to_thread(zipfile.ZipFile, zip_upload.file)
+    except (zipfile.BadZipFile, OSError) as exc:
+        logger.warning("zip rejected: not a valid zip filename=%s", zip_upload.filename)
+        raise BadRequestError("TS-13", "Uploaded file is not a valid zip archive") from exc
+
+    images = [image for image in zf.infolist() if not _is_zipping_artifact(image.filename)]
+
+    if len(images) > 100:  # TODO - add max tokens per user after stripe integration
+        logger.warning("zip rejected: too many items filename=%s count=%d", zip_upload.filename, len(images))
+        zf.close()
+        raise BadRequestError("TS-06", "Too many items in zip. 100 supported.")
+
+    try:
+        await asyncio.to_thread(_validate_images_in_zip_and_get_content_types, zf, images)
+    except BadRequestError:
+        zf.close()
+        raise
+
+    def generate_upload_files_from_zip() -> Iterator[UploadFile]:
+        try:
+            for image in images:
+                yield UploadFile(file=zf.open(image), size=image.file_size, filename=image.filename)
+        finally:
+            zf.close()
+
+    context_id = await queue_images_for_transcript(generate_upload_files_from_zip(), session, garage_client, user_id)
+    return context_id
+
+
+def _validate_images_in_zip_and_get_content_types(zf: ZipFile, images: list[zipfile.ZipInfo]):
+    for image in images:
+        if image.is_dir():
+            raise BadRequestError("TS-14", "Zip invalid. Contains directory")
+
+        if image.file_size > 40 * 1024 * 1024:
+            raise BadRequestError("TS-15",  "Zip invalid. Contains image > 40MiB")
+
+        with zf.open(image) as i:
+            try:
+                fmt = Image.open(i).format
+            except Exception as e:
+                raise BadRequestError("TS-16", "Zip invalid. Contains fake image files") from e
+        if fmt not in _SUPPORTED_IMAGE_FORMATS:
+            raise BadRequestError("TS-17", f"Zip invalid. Contains unsupported format: {fmt}")
 
 
 async def queue_images_for_transcript(uploads: Iterable[UploadFile],
@@ -110,31 +162,16 @@ async def queue_images_for_transcript(uploads: Iterable[UploadFile],
     context_id = str(uuid.uuid4())
     logger.info("queueing images for transcription context_id=%s user_id=%s", context_id, user_id)
 
-    # media_type = _SUFFIX_TO_MEDIA[Path(processing_task.object_name).suffix.lower()] TODO, add validate
-    # validate(uploads)
-
     wfq_tasks = []
     for index, upload in enumerate(uploads):
-        filename = upload.filename or "unnamed"
+        filename = Path(upload.filename).name or "unnamed"
         object_name = f"{index:04d}_{filename}"
-        logger.debug("uploading context_id=%s object_name=%s", context_id, object_name)
-        try:
-            await asyncio.to_thread(garage_client.put_object, IMAGE_TRANSCRIPTIONS_BUCKET,
-                                    f"{context_id}/{object_name}", upload.file,
-                                    content_type="application/octet-stream",
-                                    length=upload.size)
-        except (OSError, ValueError, S3Error) as exc:
-            logger.exception("upload failed context_id=%s object_name=%s; cleaning up", context_id, object_name)
-            await clean_context_data(context_id, IMAGE_TRANSCRIPTIONS_BUCKET, garage_client)
-            raise AppError("TS-01", f"Failed to upload file {object_name}") from exc
-        suffix = Path(filename).suffix.lower()
-        if suffix not in _SUFFIX_TO_MEDIA:
-            logger.warning("unsupported file type context_id=%s filename=%s; cleaning up", context_id, filename)
-            await clean_context_data(context_id, IMAGE_TRANSCRIPTIONS_BUCKET, garage_client)
-            raise BadRequestError("TS-02", f"Unsupported file type: {filename}")
-        media_type = _SUFFIX_TO_MEDIA[suffix]
+
+        await _upload_image_to_object_storage(context_id, garage_client, object_name, upload)
+
         wfq_tasks.append(WFQTaskData(context_id=context_id,
-                                     payload=TranscriptionTaskData(object_name=object_name, media_type=media_type,
+                                     created_by=user_id,
+                                     payload=TranscriptionTaskData(object_name=object_name,
                                                                    original_file_name=filename,
                                                                    file_path=f"{context_id}/{object_name}").model_dump()))
 
@@ -144,35 +181,17 @@ async def queue_images_for_transcript(uploads: Iterable[UploadFile],
     return context_id
 
 
-async def queue_images_for_transcript_zip(zip_upload: UploadFile,
-                                          session: AsyncSession,
-                                          garage_client: Minio,
-                                          user_id: str) -> str:
-    """Upload file list to garage, and add transcription taskiq for workers with needed jsonb data for handler function"""
-    logger.info("opening zip for transcription filename=%s user_id=%s", zip_upload.filename, user_id)
-    zf = await asyncio.to_thread(zipfile.ZipFile, zip_upload.file)
-
-    infos = zf.infolist()
-    if len(infos) > 100:  # TODO - add max tokens spent for free users
-        logger.warning("zip rejected: too many items filename=%s count=%d", zip_upload.filename, len(infos))
-        zf.close()
-        raise BadRequestError("TS-06", "Too many items in zip. 100 supported for free.")
-
-    def zip_files_generator() -> Iterator[UploadFile]:
-        try:
-            for info in infos:
-                if info.is_dir():
-                    continue
-                if Path(info.filename).suffix.lower() not in _SUPPORTED_IMAGE_SUFFIXES:
-                    logger.debug("skipping non-image zip entry filename=%s", info.filename)
-                    continue
-                yield UploadFile(file=zf.open(info), size=info.file_size, filename=info.filename)
-        finally:
-            zf.close()
-
-    context_id = await queue_images_for_transcript(zip_files_generator(), session, garage_client, user_id)
-
-    return context_id
+async def _upload_image_to_object_storage(context_id: str, garage_client: Minio, object_name: str, upload: UploadFile):
+    logger.debug("uploading context_id=%s object_name=%s", context_id, object_name)
+    try:
+        await asyncio.to_thread(garage_client.put_object, IMAGE_TRANSCRIPTIONS_BUCKET,
+                                f"{context_id}/{object_name}", upload.file,
+                                content_type="application/octet-stream",
+                                length=upload.size)
+    except (OSError, ValueError, S3Error) as exc:
+        logger.exception("upload failed context_id=%s object_name=%s; cleaning up", context_id, object_name)
+        await clean_context_data(context_id, IMAGE_TRANSCRIPTIONS_BUCKET, garage_client)
+        raise AppError("TS-01", f"Failed to upload file {object_name}") from exc
 
 
 async def transcription_worker_handler_func(wfq_task_data: WFQTaskData,
@@ -182,7 +201,7 @@ async def transcription_worker_handler_func(wfq_task_data: WFQTaskData,
     It gets an image object from garage base on given file_path, transcribes it with llm,
     and writes to :context_id/outputs/:object_name (0000_..., 0001_...)
     In the end it marks the task as 'done' or 'failed' depending on the worker outcome."""
-    request_data: TranscriptionTaskData = TranscriptionTaskData.model_validate(wfq_task_data.payload)
+    request_data = TranscriptionTaskData.model_validate(wfq_task_data.payload)
     logger.info("transcribing context_id=%s object_name=%s", wfq_task_data.context_id, request_data.object_name)
 
     image_object: BaseHTTPResponse = await asyncio.to_thread(garage_client.get_object,
@@ -190,7 +209,7 @@ async def transcription_worker_handler_func(wfq_task_data: WFQTaskData,
                                              request_data.file_path)
 
     try:
-        text = await convert_to_text(model, await asyncio.to_thread(image_object.read), request_data.media_type)
+        text = await convert_to_text(model, await asyncio.to_thread(image_object.read))
     finally:
         image_object.close()
         image_object.release_conn()
@@ -238,22 +257,29 @@ def _merge_and_upload_transcripts(context_id: str, garage_client: Minio):
 
 async def clean_context_data(context_id: str, bucket: str, garage_client: Minio):
     logger.info("cleaning context data context_id=%s bucket=%s", context_id, bucket)
-    objects = await asyncio.to_thread(lambda: list(garage_client.list_objects(bucket, prefix=context_id)))
+    objects = await asyncio.to_thread(
+        lambda: list(garage_client.list_objects(bucket, prefix=context_id, recursive=True))
+    )
     await asyncio.to_thread(
-        garage_client.remove_objects,bucket, (DeleteObject(obj.object_name) for obj in objects))
+        lambda: list(garage_client.remove_objects(
+            bucket, (DeleteObject(obj.object_name) for obj in objects)
+        ))
+    )
 
 
 async def get_results(context_id: str,
-                      session: AsyncSession)-> TranscriptionResult:
-    progress = await wfq_utils.get_progress(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
-    if progress.total == 0:
-        raise BadRequestError("TS-04", f"Data not found for context_id: {context_id}")
+                      session: AsyncSession,
+                      user_id: str)-> TranscriptionResult:
+    await validate_context_creator(session, context_id, user_id)
+
+    progress = await get_progress_for_context(context_id, session)
 
     failure_reasons = []
     if progress.failed > 0:
         failure_reasons = await wfq_utils.get_failure_reasons(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
 
-    if progress.done + progress.failed == progress.total:
+    finished = await wfq_utils.check_if_context_finished(progress)
+    if finished:
         return TranscriptionResult(context_id=context_id,
                                    status=WFQTaskStatus.DONE,
                                    total=progress.total,
@@ -274,39 +300,46 @@ async def get_results(context_id: str,
                                failure_reasons=failure_reasons)
 
 
-async def download_transcription_file(context_id: str, garage_client: Minio) -> AsyncIterator[bytes]:
+async def download_transcription_file(session: AsyncSession,
+                                      context_id: str,
+                                      garage_client: Minio,
+                                      user_id: str) -> BaseHTTPResponse:
+    await validate_context_creator(session, context_id, user_id)
     try:
         file_object: BaseHTTPResponse = await asyncio.to_thread(
             garage_client.get_object, IMAGE_TRANSCRIPTIONS_BUCKET, f"{context_id}/output.txt")
     except S3Error as exc:
-        raise HTTPException(status_code=404, detail="Transcription not found") from exc
+        raise NotFoundError("TS-08", "Transcription not found") from exc
 
-    try:
-        while True:
-            chunk = await asyncio.to_thread(file_object.read, 5 * 1024 * 1024)
-            if not chunk:
-                break
-            yield chunk
-    finally:
-        await asyncio.to_thread(file_object.close)
-        await asyncio.to_thread(file_object.release_conn)
+    return file_object
 
 
-async def retry_failed_transcriptions(session: AsyncSession, context_id: str):
+async def retry_failed_transcriptions(session: AsyncSession, context_id: str, user_id: str):
+    await validate_context_creator(session, context_id, user_id)
     progress = await wfq_utils.get_progress(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
     finished = await wfq_utils.check_if_context_finished(progress)
-    if finished:
+    if finished and progress.failed > 0:
         await wfq_utils.retry_all_failed_tasks(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
     else:
-        raise BadRequestError("TS-04", f"Context is not in a finished state. Progress: {progress}")
+        raise BadRequestError("TS-05", f"Context is not in a finished state. Progress: {progress}")
 
 
-async def save_file_to_disk(zip_upload: UploadFile, work_dir: str) -> str:
-    dest = Path(work_dir) / (zip_upload.filename or "upload.zip")
-    await zip_upload.seek(0)
+async def validate_context_creator(session: AsyncSession, context_id: str, user_id: str):
+    context_created_by = await wfq_utils.get_context_created_by(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
+    if context_created_by is None or user_id != context_created_by:
+        raise BadRequestError("TS-07", "Cannot access context if you are not the creator")
 
-    with open(dest, "wb") as out:
-        while chunk := await zip_upload.read(_CHUNK_SIZE):
-            out.write(chunk)
 
-    return str(dest)
+async def get_progress_for_context(context_id: str, session: AsyncSession) -> TaskContextProgress:
+    progress = await wfq_utils.get_progress(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
+    if progress.total == 0:
+        raise BadRequestError("TS-04", f"Data not found for context_id: {context_id}")
+    return progress
+
+
+def _is_zipping_artifact(filename: str) -> bool:
+    """Helper function to filter out files in a zip that are created from macOS or non-HFS volumes"""
+    if filename.startswith("__MACOSX/") or filename == ".DS_Store" or filename.startswith("._"):
+        return True
+    else:
+        return False

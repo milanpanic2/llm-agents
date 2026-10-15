@@ -34,22 +34,20 @@ async def _cancel_workers(workers: list[asyncio.Task]):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Cap the default thread pool used by asyncio.to_thread for blocking (sync minio) I/O.
-    # Default is min(32, os.cpu_count()+4), sized to the node's cores (ignores our cgroup CPU
-    # limit), which spawns far more threads than needed and lets each prime its own glibc
-    # malloc arena, ratcheting RSS. 4 is ample for our ~3 concurrent WFQ workers. (# of workers + 1)
-    loop = asyncio.get_running_loop()
-    max_blocking_io = (
-            settings.max_licq_concurrent_transcriptions
-            + settings.max_fifo_concurrent_transcriptions
-            + 8  # headroom for fastapi
-    )
-    loop.set_default_executor(ThreadPoolExecutor(max_workers=max_blocking_io, thread_name_prefix="to_thread"))
-
     logger.info("FastAPI started successfully. Starting init work...")
     init_db()
 
     async with AsyncExitStack() as stack:
+        loop = asyncio.get_running_loop()
+        max_blocking_io = (
+                settings.max_licq_concurrent_transcriptions
+                + settings.max_fifo_concurrent_transcriptions
+                + 8
+        )
+        executor = ThreadPoolExecutor(max_workers=max_blocking_io, thread_name_prefix="to_thread")
+        loop.set_default_executor(executor)
+        stack.callback(executor.shutdown, wait=True, cancel_futures=True)
+
         logger.info("Creating crawler client")
         crw_client = CrwClient()
         stack.push_async_callback(crw_client.aclose)
@@ -77,21 +75,19 @@ async def lifespan(app: FastAPI):
             settings=OpenAIChatModelSettings(
                 max_tokens=600,
                 temperature=0.0,
-                extra_body={"chat_template_kwargs": {"enable_thinking": False}}, # disable thinking of this model
+                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
             )
         )
 
-        await init_wfq(garage_client, stack, transcription_model)
-
-        # if not transcriptions_broker.is_worker_process:
-        #     await transcriptions_broker.startup()
-        #     stack.push_async_callback(transcriptions_broker.shutdown)
+        await init_transcriptions_workers(garage_client, stack, transcription_model)
 
         logger.info("startup complete; serving requests")
         yield
 
 
-async def init_wfq(garage_client: Minio, stack: AsyncExitStack[bool | None], transcription_model: OpenAIChatModel):
+async def init_transcriptions_workers(garage_client: Minio,
+                                      stack: AsyncExitStack[bool | None],
+                                      transcription_model: OpenAIChatModel):
     # LICQ - longest idle context queueing
     logger.info(f"Creating longest idle context engine, and starting {settings.max_licq_concurrent_transcriptions} "
                 f"workers")
@@ -112,7 +108,7 @@ async def init_wfq(garage_client: Minio, stack: AsyncExitStack[bool | None], tra
     stack.push_async_callback(_cancel_workers, licq_workers)
 
     # FIFO
-    logger.info(f"Creating first-in-first-out engine, and starting {settings.max_licq_concurrent_transcriptions} "
+    logger.info(f"Creating first-in-first-out engine, and starting {settings.max_fifo_concurrent_transcriptions} "
                 f"workers")
     fifo_transcriptions = WFQEngine(
         transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,

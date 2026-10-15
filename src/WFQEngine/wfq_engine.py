@@ -31,24 +31,28 @@ class WFQTaskStatus(StrEnum):
 
 
 class WFQTaskData(BaseModel):
-    id: str = "" # DB assigns on insert
+    id: str = ""
     context_id: str
     payload: dict[str, Any]
     failure_reason: str = ""
+    created_by: str
 
 
-# TODO - make with DeclarativeBase from sql-alchemy
 CREATE_WFQ_TABLE = """
 CREATE TABLE IF NOT EXISTS {table_name} (
     id             TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     context_id     TEXT NOT NULL,
     status         VARCHAR(20) NOT NULL DEFAULT 'pending'
                    CHECK (status IN ('pending', 'running', 'done', 'failed')),
+    created_by     TEXT NOT NULL,
+                   
     payload        JSONB NOT NULL,
     failure_reason TEXT,
+    
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     started_at     TIMESTAMPTZ,
     finished_at    TIMESTAMPTZ,
+    
     priority       VARCHAR(50) NOT NULL DEFAULT 'standard'
 );"""
 
@@ -77,7 +81,7 @@ class WFQEngine:
         self.sql_claim = sql_claim
         self.handler_func = handler_func
         self.completion_func = completion_func
-        self.retry_interval = retry_interval # after how much minutes should retry happen
+        self.retry_interval = retry_interval # must stay above the max task time (LLM 2×120 s + Garage I/O)
 
 
     async def create_table(self):
@@ -170,7 +174,7 @@ class WFQEngine:
 
 
     async def _claim_for_retry(self) -> RowMapping | None:
-        """Outputs an element that is with 'running' status older than the given retry_interval - async safe
+        """Outputs an element that is with 'running' status older than the given retry_interval
         Note: retry_interval should be longer than expected longest time for a task to finish.
         Otherwise, a running task is retried"""
 

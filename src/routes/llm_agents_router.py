@@ -1,9 +1,9 @@
+import asyncio
 import logging
 
 import jwt
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from glide import GlideClient
 from minio import Minio
 from starlette.responses import StreamingResponse
 
@@ -11,7 +11,7 @@ from src.agents import transcriptions_service
 from src.agents.transcriptions_service import TranscriptionResult
 from src.config.settings import settings
 from src.database.connection import get_db
-from src.errors import BadRequestError
+
 
 router = APIRouter(prefix="/llm-agents/v1", tags=["llm-agents"])
 
@@ -32,26 +32,9 @@ async def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(bearer
     return payload["sub"]
 
 
-def get_valkey_client(request: Request) -> GlideClient:
-    return request.app.state.valkey_client
-
-
 def get_garage_client(request: Request) -> Minio:
     return request.app.state.garage_client
 
-
-@router.post("/transcription-agent/transcribe")
-async def image_text_to_text(
-    uploads: list[UploadFile] = File(...),
-    psql_connection = Depends(get_db),
-    garage_client = Depends(get_garage_client),
-    user_id: str = Depends(get_user_id)) -> dict[str, str]:
-    if len(uploads) > 5:
-        raise BadRequestError("LAR-01",
-                              "Max 5 transcriptions. Use zip file endpoint for more support")
-    context_id = await transcriptions_service.queue_images_for_transcript(uploads, psql_connection, garage_client,
-                                                                          user_id)
-    return {"context_id": context_id}
 
 @router.post("/transcription-agent/transcribe/zip")
 async def image_text_to_text_zip(
@@ -66,36 +49,38 @@ async def image_text_to_text_zip(
 
 @router.get("/transcription-agent/{context_id}")
 async def get_results(context_id: str,
-                      session = Depends(get_db)) -> TranscriptionResult:
-    return await transcriptions_service.get_results(context_id, session)
+                      session = Depends(get_db),
+                      user_id = Depends(get_user_id)) -> TranscriptionResult:
+    return await transcriptions_service.get_results(context_id, session, user_id)
 
 
 @router.get("/transcription-agent/{context_id}/download")
 async def download_transcription_file(context_id: str,
-                                      garage_client = Depends(get_garage_client)) -> StreamingResponse:
-    file_download = transcriptions_service.download_transcription_file(context_id, garage_client)
+                                      garage_client = Depends(get_garage_client),
+                                      session = Depends(get_db),
+                                      user_id = Depends(get_user_id)) -> StreamingResponse:
+    file_download = await transcriptions_service.download_transcription_file(session, context_id, garage_client, user_id)
+    async def stream_chunks():
+        try:
+            while True:
+                chunk = await asyncio.to_thread(file_download.read, 5 * 1024 * 1024)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            await asyncio.to_thread(file_download.close)
+            await asyncio.to_thread(file_download.release_conn)
+
+
     return StreamingResponse(
-        file_download,
+        stream_chunks(),
         media_type="text/plain; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{context_id}.txt"'})
 
 
 @router.patch("/transcription-agent/{context_id}/retry_failed")
 async def retry_failed(context_id: str,
-                       session = Depends(get_db)):
-    await transcriptions_service.retry_failed_transcriptions(session, context_id)
+                       session = Depends(get_db),
+                       user_id = Depends(get_user_id)):
+    await transcriptions_service.retry_failed_transcriptions(session, context_id, user_id)
     return None
-
-
-# @router.post("/image-text-to-text/plain", response_class=PlainTextResponse)
-# async def image_text_to_text_plain(
-#     files: list[UploadFile] = File(...),
-#     model: OpenAIChatModel = Depends(get_llm_model),
-# ) -> str:
-#
-#     results = await text_image_to_image_services.transcribe_uploads(files, model)
-#
-#     if not results:
-#         raise HTTPException(status_code=400, detail="No .jpg images found in upload")
-#
-#     return "\n\n".join(f"=== {r.filename} ===\n{r.text}" for r in results)

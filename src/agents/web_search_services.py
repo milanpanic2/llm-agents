@@ -81,7 +81,7 @@ async def enhance_prompt_with_search(prompt: str, model: OpenAIChatModel, crw_cl
 
 async def query_expansion(model: OpenAIChatModel, query: str) -> list[str]:
     generated_queries_answer = await web_query_generator_agent.run(query, model=model)
-    queries: list[str] = [query, generated_queries_answer.output]
+    queries: list[str] = [query, *generated_queries_answer.output]
     return queries
 
 
