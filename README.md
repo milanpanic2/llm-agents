@@ -14,12 +14,9 @@ weeks by hand. Built with FastAPI, pydantic-ai, a fair Postgres-backed task queu
 Garage S3 and llama-server, preferably running on Kubernetes.
 
 **Highlights**
-
-- Fair task queue on PostgreSQL (`SKIP LOCKED` + per-user "longest idle" scheduling), no extra broker
-- Exactly-once completion across concurrent workers via advisory locks
-- Measured: 70 handwritten pages in ~8 min on one GPU with 4 concurrent
-inferences
-- app at ~0.005 CPU / ~300 MiB per replica
+- [Fair task queue on PostgreSQL](#why-postgresql): `SKIP LOCKED` + per-user [longest idle scheduling](#licq-and-fifo-workers), no extra broker
+- [Exactly-once completion](#exactly-once-completion) across concurrent workers via advisory locks
+- [Measured](#performance): 70 handwritten pages in ~8 min on one GPU, app at ~0.005 CPU / ~300 MiB
 
 
 ### C2 Diagram
