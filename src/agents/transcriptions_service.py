@@ -80,7 +80,7 @@ async def convert_to_text(model: Model, image_bytes: bytes) -> str:
             model=model,
         )
 
-    usage = result.usage  # property in pydantic-ai 2.17, not a method
+    usage = result.usage
     metrics.LLM_TOKENS_TOTAL.add(usage.input_tokens or 0, {"model": model_name, "direction": "input"})
     metrics.LLM_TOKENS_TOTAL.add(usage.output_tokens or 0, {"model": model_name, "direction": "output"})
 
@@ -116,7 +116,12 @@ async def queue_images_for_transcript_zip(zip_upload: UploadFile,
 
     images = [image for image in zf.infolist() if not _is_zipping_artifact(image.filename)]
 
-    if len(images) > 100:  # TODO - add max tokens per user after stripe integration
+    if len(images) == 0:
+        logger.warning("zip rejected: no valid files found in zip for user_id=%s upload", user_id)
+        zf.close()
+        raise BadRequestError("TS-18", "No valid files found, check the submitted zip.")
+
+    if len(images) > 100:  # TODO - add max tokens per user to 15 a day. after stripe integration add 2eur = 100 images
         logger.warning("zip rejected: too many items filename=%s count=%d", zip_upload.filename, len(images))
         zf.close()
         raise BadRequestError("TS-06", "Too many items in zip. 100 supported.")
@@ -322,7 +327,7 @@ async def retry_failed_transcriptions(session: AsyncSession, context_id: str, us
     if finished and progress.failed > 0:
         await wfq_utils.retry_all_failed_tasks(session, TRANSCRIPTION_TASKS_TABLE_NAME, context_id)
     else:
-        raise BadRequestError("TS-05", f"Context is not in a finished state. Progress: {progress}")
+        raise BadRequestError("TS-05", f"Context is not in a retriable state. Progress: {progress}")
 
 
 async def validate_context_creator(session: AsyncSession, context_id: str, user_id: str):
@@ -338,9 +343,9 @@ async def get_progress_for_context(context_id: str, session: AsyncSession) -> Ta
     return progress
 
 
-def _is_zipping_artifact(filename: str) -> bool:
-    """Helper function to filter out files in a zip that are created from macOS or non-HFS volumes"""
-    if filename.startswith("__MACOSX/") or filename == ".DS_Store" or filename.startswith("._"):
-        return True
-    else:
-        return False
+def _is_zipping_artifact(info: zipfile.ZipInfo) -> bool:
+    name = Path(info.filename).name
+    return (info.is_dir()
+            or info.filename.startswith("__MACOSX/")
+            or name == ".DS_Store"
+            or name.startswith("._"))

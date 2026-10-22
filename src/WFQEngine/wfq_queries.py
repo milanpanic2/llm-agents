@@ -1,37 +1,40 @@
 #t2.priority DESC,             -- optional: paid tiers cut ahead
 WFQ_LONGEST_IDLE_CLAIM = """
-WITH longest_idle_context AS (
-    SELECT context_id, max(started_at) AS last_done
-    FROM transcription_tasks
-    WHERE started_at IS NOT NULL
-    GROUP BY context_id
+WITH next_task AS (
+    SELECT t1.id
+    FROM {table_name} t1
+    JOIN LATERAL (
+        SELECT max(t2.started_at) AS longest_idle
+        FROM {table_name} t2
+        WHERE t2.context_id = t1.context_id
+    ) lic ON true
+    WHERE t1.status = 'pending'
+    ORDER BY
+        lic.longest_idle ASC NULLS FIRST,
+        t1.created_at ASC
+    FOR UPDATE OF t1 SKIP LOCKED
+    LIMIT 1
 )
 UPDATE {table_name} t
 SET status = 'running', started_at = now()
-WHERE t.id = (
-    SELECT t2.id
-    FROM {table_name} t2
-    LEFT JOIN longest_idle_context lic ON lic.context_id = t2.context_id
-    WHERE t2.status = 'pending'
-    ORDER BY
-        lic.last_done ASC NULLS FIRST,
-        t2.created_at ASC
-    FOR UPDATE OF t2 SKIP LOCKED
-    LIMIT 1
-)
-RETURNING t.*;"""
+FROM next_task
+WHERE t.id = next_task.id
+RETURNING t.*;
+"""
 
 
 WFQ_FIFO_CLAIM = """
-UPDATE {table_name} t
-SET status = 'running', started_at = now()
-WHERE t.id = (
-    SELECT t2.id
-    FROM {table_name} t2
-    WHERE t2.status = 'pending'
-    ORDER BY
-        t2.created_at ASC
-    FOR UPDATE OF t2 SKIP LOCKED
+WITH next_task AS (
+    SELECT t1.id
+    FROM {table_name} t1
+    WHERE t1.status = 'pending'
+    ORDER BY t1.created_at ASC
+    FOR UPDATE SKIP LOCKED
     LIMIT 1
 )
-RETURNING t.*;"""
+UPDATE {table_name} t
+SET status = 'running', started_at = now()
+FROM next_task
+WHERE t.id = next_task.id
+RETURNING t.*;
+"""

@@ -26,7 +26,12 @@ class WFQTask(Base):
     __tablename__ = "transcription_tasks"
     __table_args__ = (
         CheckConstraint(f"status IN ({_STATUS_VALUES})", name="status_check"),
-        Index("transcription_tasks_context_id_idx", "context_id"),
+        Index("transcription_tasks_ctx_started_idx", "context_id", "started_at"),
+        Index("transcription_tasks_pending_idx", "created_at",
+              postgresql_where=text("status = 'pending'")),
+        Index("transcription_tasks_running_idx", "started_at",
+              postgresql_where=text("status = 'running'")),
+
     )
 
     id: Mapped[str] = mapped_column(Text, primary_key=True, server_default=text("gen_random_uuid()::text"))
