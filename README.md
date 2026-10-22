@@ -13,6 +13,17 @@ Upload a zip of photos, get back one text file — 70 pages in ~8 minutes instea
 weeks by hand. Built with FastAPI, pydantic-ai, a fair Postgres-backed task queue,
 Garage S3 and llama-server, preferably running on Kubernetes.
 
+**Highlights**
+
+- Fair task queue on PostgreSQL (`SKIP LOCKED` + per-user "longest idle" scheduling), no extra broker
+- Exactly-once completion across concurrent workers via advisory locks
+- Measured: 70 handwritten pages in ~8 min on one GPU with 4 concurrent
+inferences
+- app at ~0.005 CPU / ~300 MiB per replica
+
+
+### C2 Diagram
+
 ```mermaid
 flowchart TB
     user([User])
@@ -37,10 +48,13 @@ flowchart TB
     ts -->|"transcribe image"| llm
 ```
 
-The WFQ Engine is generic: it's constructed on app startup, or
-as separate deployment, receives the transcription logic as
-callbacks (handler_func, completion_func), so it can run any
-kind of task. See src/WFQEngine/README.md.
+The WFQ Engine is generic: it's constructed on app startup (or
+as can be run as separate deployment), receives the transcription logic as
+callback arguments (handler_func, completion_func),
+and sql claim query as parameter so it can run wider range
+of tasks in wide ordering range. See src/WFQEngine/README.md
+for WFQ Engine construction.
+
 
 ### Main workflows
 #### Upload
@@ -173,8 +187,7 @@ FIFO gives the system an ability to consistently work on oldest
 submitted tasks, so that no user waits too long, while LICQ makes
 it possible so that small contexts don't have to wait
 behind big contexts before starting. It selects a task from
-a context selects a task from the context whose most recent
-`started_at` is the oldest, meaning
+the context whose most recent started_at is the oldest, meaning
 the context that was idle the longest compared to other contexts,
 or is NULL, meaning never worked on this context's tasks.
 

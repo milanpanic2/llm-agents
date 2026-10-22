@@ -5,7 +5,7 @@ flowchart LR
     subgraph engine["WFQ Engine (generic, knows nothing about transcriptions)"]
         direction TB
         worker["worker loop<br/>reclaim → claim → run"]
-        cb{{"callbacks<br/>handler_func(task)<br/>completion_func(task)"}}
+        cb{{"- callbacks<br/>(handler_func,<br/>completion_func)<br/>- sql query for claiming task"}}
         worker -->|"calls"| cb
     end
 
