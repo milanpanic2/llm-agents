@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 import jwt
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from minio import Minio
 from starlette.responses import StreamingResponse
@@ -36,7 +36,7 @@ def get_garage_client(request: Request) -> Minio:
     return request.app.state.garage_client
 
 
-@router.post("/transcription-agent/transcribe/zip")
+@router.post("/transcription-agent/transcribe/zip", status_code=status.HTTP_202_ACCEPTED)
 async def image_text_to_text_zip(
     upload: UploadFile = File(...),
     psql_connection = Depends(get_db),
