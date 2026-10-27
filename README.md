@@ -49,7 +49,8 @@ The WFQ Engine is generic: it's constructed on app startup (or
 as can be run as separate deployment), receives the transcription logic as
 callback arguments (handler_func, completion_func),
 and sql claim query as parameter so it can run wider range
-of tasks in wide ordering range. See src/WFQEngine/README.md
+of tasks in wide ordering range. See the
+[WFQ Engine README](./src/WFQEngine/README.md)
 for WFQ Engine construction.
 
 

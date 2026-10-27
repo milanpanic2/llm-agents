@@ -23,6 +23,7 @@ def collect():
     power_limit.set(float(p_limit))
     temperature.set(float(temp))
 
+
 if __name__ == '__main__':
     start_http_server(8091)
 
