@@ -2,17 +2,15 @@ import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AsyncExitStack, asynccontextmanager
-from functools import partial
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from minio import Minio
 from openai import AsyncOpenAI
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 from starlette.requests import Request
 
-from src.agents import transcriptions_service
+from src.services import transcriptions_service
 from src.clients.crw_client import CrwClient
 from src.config.settings import settings
 from src.config.telemetry import init_telemetry
@@ -20,16 +18,8 @@ from src.database.connection import init_db, sync_engine
 from src.errors import AppError
 from src.garage.garage_client import init_garage_client
 from src.routes import router
-from src.WFQEngine import wfq_queries
-from src.WFQEngine.wfq_engine import WFQEngine
 
 logger = logging.getLogger(__name__)
-
-
-async def _cancel_workers(workers: list[asyncio.Task]):
-    for worker in workers:
-        worker.cancel()
-    await asyncio.gather(*workers, return_exceptions=True)
 
 
 @asynccontextmanager
@@ -79,52 +69,13 @@ async def lifespan(app: FastAPI):
             )
         )
 
-        await init_transcriptions_workers(garage_client, stack, transcription_model)
+        logger.info("Creating transcriptions engines")
+        engines = await transcriptions_service.init_transcription_engines(garage_client, transcription_model)
+        for engine, worker_count in engines:
+            await stack.enter_async_context(engine.run_workers(worker_count))
 
         logger.info("startup complete; serving requests")
         yield
-
-
-async def init_transcriptions_workers(garage_client: Minio,
-                                      stack: AsyncExitStack[bool | None],
-                                      transcription_model: OpenAIChatModel):
-    # LICQ - longest idle context queueing
-    logger.info(f"Creating longest idle context engine, and starting {settings.max_licq_concurrent_transcriptions} "
-                f"workers")
-    licq_transcriptions = WFQEngine(
-        transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
-        wfq_queries.WFQ_LONGEST_IDLE_CLAIM,
-        handler_func=partial(transcriptions_service.transcription_worker_handler_func,
-                             model=transcription_model, garage_client=garage_client),
-        completion_func=partial(transcriptions_service.transcription_worker_completion_func,
-                                garage_client=garage_client),
-    )
-    logger.info("ensuring task table exists")
-    await licq_transcriptions.create_table()
-    licq_workers = [
-        asyncio.create_task(licq_transcriptions.worker(f"w{i}"))
-        for i in range(settings.max_licq_concurrent_transcriptions)
-    ]
-    stack.push_async_callback(_cancel_workers, licq_workers)
-
-    # FIFO
-    logger.info(f"Creating first-in-first-out engine, and starting {settings.max_fifo_concurrent_transcriptions} "
-                f"workers")
-    fifo_transcriptions = WFQEngine(
-        transcriptions_service.TRANSCRIPTION_TASKS_TABLE_NAME,
-        wfq_queries.WFQ_FIFO_CLAIM,
-        handler_func=partial(transcriptions_service.transcription_worker_handler_func,
-                             model=transcription_model, garage_client=garage_client),
-        completion_func=partial(transcriptions_service.transcription_worker_completion_func,
-                                garage_client=garage_client),
-    )
-    logger.info("ensuring task table exists")
-    await fifo_transcriptions.create_table()
-    fifo_workers = [
-        asyncio.create_task(fifo_transcriptions.worker(f"w{i}"))
-        for i in range(settings.max_fifo_concurrent_transcriptions)
-    ]
-    stack.push_async_callback(_cancel_workers, fifo_workers)
 
 
 app = FastAPI(

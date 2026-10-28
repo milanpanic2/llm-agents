@@ -1,7 +1,8 @@
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 
 from pydantic import BaseModel
 from sqlalchemy import RowMapping, text
@@ -56,13 +57,24 @@ class WFQEngine:
             await conn.run_sync(Base.metadata.create_all)
 
 
-    async def start_concurrent_workers(self, count: int):
-        """Run `count` workers until cancelled. Entry point for a dedicated worker process."""
+    @asynccontextmanager
+    async def run_workers(self, count: int) -> AsyncIterator[None]:
+        """Spawn `count` background workers for the lifetime of the context, cancelling and
+        draining them on exit. Generic lifecycle primitive: the caller chooses how to scope it
+        (`async with`, `AsyncExitStack`, `asyncio.TaskGroup`, ...)."""
 
-        await asyncio.gather(*(self.worker(f"w{i}") for i in range(count)))
+        logger.info("starting %d workers table=%s", count, self.table_name)
+        workers = [asyncio.create_task(self._worker(f"w{i}")) for i in range(count)]
+        try:
+            yield
+        finally:
+            for worker in workers:
+                worker.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
+            logger.info("workers stopped table=%s", self.table_name)
 
 
-    async def worker(self, worker_name):
+    async def _worker(self, worker_name):
         """Worker function that runs until cancelled. Pings every 5 seconds if there is work submitted.
         First run long overdue 'running' taskiq, then run pending taskiq depending on chosen self.sql_claim
         Note: long overdue 'running' taskiq should be a rare occurrence. ex. interrupted worker mid execution"""

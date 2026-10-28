@@ -9,7 +9,7 @@ async_engine = create_async_engine(
     pool_pre_ping=True,
     pool_size=settings.db_pool_size,
     max_overflow=settings.db_max_overflow,
-    echo=False,  # Set to True for SQL query logging
+    echo=True,
 )
 
 AsyncSessionLocal = async_sessionmaker(

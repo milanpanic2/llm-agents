@@ -69,7 +69,7 @@ sequenceDiagram
     end
     API->>API: validate zip (≤100 images, ≤40 MiB each, real JPEG/PNG)
     break invalid zip
-        API-->>User: 400 (TS-13 / 06 / 15 / 16 / 17)
+        API-->>User: 400 (ZIP-01 / 02 / 03 / 04 / 05 / 06)
     end
     loop each image
         API->>Garage: put {context_id}/{0000_name}
@@ -232,12 +232,12 @@ on the image. 4 concurrent workers, 2 FIFO and 2 LICQ are running.
 
 ### API
 
-| endpoint                                                            |                 purpose                  |                                     error codes |
-|:--------------------------------------------------------------------|:----------------------------------------:|------------------------------------------------:|
-| POST: /llm-agents/v1/transcription-agent/transcribe/zip             | submit zip file for image transcriptions | TS-06, TS-13, TS-14, TS-15, TS-16, TS-17, TS-18 |
-| GET: /llm-agents/v1/transcription-agent/{context_id}                |   get progress of the submitted images   |                                           TS-04 |
-| GET: /llm-agents/v1/transcription-agent/{context_id}/download       |    download transcribed file if ready    |                                    TS-07, TS-08 |
-| PATCH: /llm-agents/v1/transcription-agent/{context_id}/retry_failed | retry failed for context if failed tasks |                                           TS-05 |
+| endpoint                                                            |                 purpose                  |                                    error codes |
+|:--------------------------------------------------------------------|:----------------------------------------:|-----------------------------------------------:|
+| POST: /llm-agents/v1/transcription-agent/transcribe/zip             | submit zip file for image transcriptions | ZIP-01, ZIP-02, ZIP-03, ZIP-04, ZIP-05, ZIP-06 |
+| GET: /llm-agents/v1/transcription-agent/{context_id}                |   get progress of the submitted images   |                                          TS-04 |
+| GET: /llm-agents/v1/transcription-agent/{context_id}/download       |    download transcribed file if ready    |                                   TS-07, TS-08 |
+| PATCH: /llm-agents/v1/transcription-agent/{context_id}/retry_failed | retry failed for context if failed tasks |                                          TS-05 |
 
 
 ### Future work

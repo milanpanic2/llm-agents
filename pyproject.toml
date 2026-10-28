@@ -33,7 +33,9 @@ dependencies = [
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+pythonVersion = "3.13"
 typeCheckingMode = "standard"
+include = ["src"]
 
 [tool.ruff]
 line-length = 120
@@ -42,7 +44,12 @@ line-length = 120
 select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["B008"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
 [dependency-groups]
 dev = [
     "ipykernel>=7.3.0",
+    "ruff>=0.14.0",
+    "pyright>=1.1.390",
 ]
