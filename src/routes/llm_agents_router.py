@@ -32,7 +32,7 @@ async def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(bearer
     return payload["sub"]
 
 
-def get_garage_client(request: Request) -> Minio:
+async def get_garage_client(request: Request) -> Minio:
     return request.app.state.garage_client
 
 
