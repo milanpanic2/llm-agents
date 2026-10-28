@@ -40,7 +40,8 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        return f"{self.postgresql_user}:{self.postgresql_password}@{self.postgresql_host}:{self.postgresql_port}/{self.postgresql_db_name}"
+        return (f"{self.postgresql_user}:{self.postgresql_password}@{self.postgresql_host}:{self.postgresql_port}/"
+                f"{self.postgresql_db_name}")
 
     @property
     def valkey_url(self) -> str:

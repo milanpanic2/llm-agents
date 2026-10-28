@@ -7,11 +7,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from minio import Minio
 from starlette.responses import StreamingResponse
 
-from src.services import transcriptions_service
-from src.services.transcriptions_service import TranscriptionResult
 from src.config.settings import settings
 from src.database.connection import get_db
-
+from src.services import transcriptions_service
+from src.services.transcriptions_service import TranscriptionResult
 
 router = APIRouter(prefix="/llm-agents/v1", tags=["llm-agents"])
 
@@ -59,7 +58,8 @@ async def download_transcription_file(context_id: str,
                                       garage_client = Depends(get_garage_client),
                                       session = Depends(get_db),
                                       user_id = Depends(get_user_id)) -> StreamingResponse:
-    file_download = await transcriptions_service.download_transcriptions_file(session, context_id, garage_client, user_id)
+    file_download = await transcriptions_service.download_transcriptions_file(session, context_id, garage_client,
+                                                                              user_id)
     async def stream_chunks():
         try:
             while True:

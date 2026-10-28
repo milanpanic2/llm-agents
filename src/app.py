@@ -10,7 +10,6 @@ from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
 from pydantic_ai.providers.openai import OpenAIProvider
 from starlette.requests import Request
 
-from src.services import transcriptions_service
 from src.clients.crw_client import CrwClient
 from src.config.settings import settings
 from src.config.telemetry import init_telemetry
@@ -18,6 +17,7 @@ from src.database.connection import init_db, sync_engine
 from src.errors import AppError
 from src.garage.garage_client import init_garage_client
 from src.routes import router
+from src.services import transcriptions_service
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="LLM Agents Service", description="LLM agents service for running llm taskiq with custom built tools", version="0.1.0", lifespan=lifespan
+    title="LLM Agents Service", description="LLM agents service for running llm taskiq with custom built tools",
+    version="0.1.0", lifespan=lifespan
 )
 
 

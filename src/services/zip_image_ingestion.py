@@ -4,6 +4,7 @@ import zipfile
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import BinaryIO, cast
 from zipfile import ZipFile
 
 from fastapi import UploadFile
@@ -45,7 +46,7 @@ async def images_from_zip(zip_upload: UploadFile) -> AsyncIterator[Iterator[Uplo
 
         def generate_upload_files() -> Iterator[UploadFile]:
             for image in images:
-                yield UploadFile(file=zf.open(image), size=image.file_size, filename=image.filename)
+                yield UploadFile(file=cast(BinaryIO, zf.open(image)), size=image.file_size, filename=image.filename)
 
         yield generate_upload_files()
     finally:

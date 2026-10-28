@@ -30,13 +30,6 @@ async def get_progress(session: AsyncSession, table_name: str, context_id: str) 
     return TaskContextProgress(**counts)
 
 
-async def check_if_context_finished(progress: TaskContextProgress) -> bool:
-    if progress.done + progress.failed == progress.total:
-        return True
-    else:
-        return False
-
-
 async def get_failure_reasons(session: AsyncSession, table_name: str, context_id: str) -> list[FailureReasons]:
     sql = f"""SELECT id, failure_reason
               FROM {table_name}

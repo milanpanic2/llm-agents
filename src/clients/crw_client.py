@@ -80,7 +80,7 @@ class CrwClient:
 
         scraped_data_list: list[ScrapedData] = []
         for url, item in zip(urls, results, strict=True):
-            if isinstance(item, Exception):
+            if isinstance(item, BaseException):
                 logger.warning("CRWC-10 Partial success: failed scrape for %s: %s", url, item)
                 continue
             else:

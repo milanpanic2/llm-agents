@@ -32,4 +32,4 @@ class WFQTaskQueue:
 
     @staticmethod
     async def check_if_context_finished(progress: TaskContextProgress) -> bool:
-        return await wfq_utils.check_if_context_finished(progress)
+        return progress.done + progress.failed == progress.total

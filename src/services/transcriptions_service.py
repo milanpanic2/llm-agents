@@ -26,8 +26,6 @@ from src.WFQEngine.wfq_engine import FailureReasons, TaskContextProgress, WFQEng
 from src.WFQEngine.wfq_models import WFQTask, WFQTaskStatus
 from src.WFQEngine.wfq_queue_facade import WFQTaskQueue
 
-
-
 _WFQ_TRANSCRIPTION_TASKS_TABLE_NAME = "transcription_tasks"
 
 _CHUNK_SIZE = 2 * 1024 * 1024
@@ -57,7 +55,8 @@ async def queue_images_for_transcript_zip(zip_upload: UploadFile,
                                           session: AsyncSession,
                                           garage_client: Minio,
                                           user_id: str) -> str:
-    """Upload file list to garage, and add transcription taskiq for workers with needed jsonb data for handler function"""
+    """Upload file list to garage, and add transcription taskiq for workers with needed jsonb data for handler
+    function"""
     logger.info("opening zip for transcription filename=%s user_id=%s", zip_upload.filename, user_id)
     async with images_from_zip(zip_upload) as uploads:
         return await queue_images_for_transcript(uploads, session, garage_client, user_id)
@@ -67,12 +66,15 @@ async def queue_images_for_transcript(uploads: Iterable[UploadFile],
                                       session: AsyncSession,
                                       garage_client: Minio,
                                       user_id: str) -> str:
-    """Upload file list to garage, and add transcription taskiq for workers with needed jsonb data for handler function"""
+    """Upload file list to garage, and add transcription taskiq for workers with needed jsonb data for handler
+    function"""
     context_id = str(uuid.uuid4())
     logger.info("queueing images for transcription context_id=%s user_id=%s", context_id, user_id)
 
     wfq_tasks = []
     for index, upload in enumerate(uploads):
+        if upload.filename is None:
+            raise AppError("TS-06", "Failed to get constructed image filename")
         filename = Path(upload.filename).name or "unnamed"
         object_name = f"{index:04d}_{filename}"
 
@@ -93,6 +95,8 @@ async def queue_images_for_transcript(uploads: Iterable[UploadFile],
 async def _upload_image_to_object_storage(context_id: str, garage_client: Minio, object_name: str, upload: UploadFile):
     logger.debug("uploading context_id=%s object_name=%s", context_id, object_name)
     try:
+        if upload.size is None:
+            raise AppError("TS-09", "Failed to get constructed image file size")
         await asyncio.to_thread(garage_client.put_object, IMAGE_TRANSCRIPTIONS_BUCKET,
                                 f"{context_id}/{object_name}", upload.file,
                                 content_type="application/octet-stream",
@@ -111,7 +115,8 @@ async def transcription_worker_handler_func(wfq_task_data: WFQTask,
     and writes to :context_id/outputs/:object_name (0000_..., 0001_...)
     In the end it marks the task as 'done' or 'failed' depending on the worker outcome."""
     request_data = TranscriptionTaskData.model_validate(wfq_task_data.payload)
-    logger.info("transcribing context_id=%s object_name=%s", wfq_task_data.context_id, request_data.object_name)
+    logger.info("transcribing context_id=%s object_name=%s", wfq_task_data.context_id,
+                request_data.object_name)
 
     image_object: BaseHTTPResponse = await asyncio.to_thread(garage_client.get_object,
                                              IMAGE_TRANSCRIPTIONS_BUCKET,
@@ -130,7 +135,8 @@ async def transcription_worker_handler_func(wfq_task_data: WFQTask,
     text_bytes = full_text.encode("utf-8")
 
     await asyncio.to_thread(garage_client.put_object, IMAGE_TRANSCRIPTIONS_BUCKET,
-                                                         f"{wfq_task_data.context_id}/outputs/{request_data.object_name}.txt",
+                                                         f"{wfq_task_data.context_id}/outputs/"
+                                                         f"{request_data.object_name}.txt",
                                                          io.BytesIO(text_bytes),
                                                          length=len(text_bytes),
                                                          content_type="text/plain; charset=utf-8")
@@ -171,6 +177,8 @@ def _merge_and_upload_transcripts(context_id: str, garage_client: Minio):
     try:
         with open(file_path, "ab") as f:
             for obj in objects:
+                if obj.object_name is None:
+                    continue # invariant
                 obj_to_write = garage_client.get_object(IMAGE_TRANSCRIPTIONS_BUCKET, obj.object_name)
                 try:
                     f.write(obj_to_write.read())
@@ -194,7 +202,7 @@ async def _clean_context_data(context_id: str, bucket: str, garage_client: Minio
     )
     await asyncio.to_thread(
         lambda: list(garage_client.remove_objects(
-            bucket, (DeleteObject(obj.object_name) for obj in objects)
+            bucket, (DeleteObject(obj.object_name) for obj in objects if obj.object_name is not None)
         ))
     )
 
@@ -217,7 +225,8 @@ async def get_results(context_id: str,
                                    total=progress.total,
                                    done=progress.done,
                                    failed=progress.failed,
-                                   download_link=f"{settings.public_base_url}/llm-agents/v1/transcription-agent/{context_id}/download",
+                                   download_link=f"{settings.public_base_url}/llm-agents/v1/transcription-agent/"
+                                                 f"{context_id}/download",
                                    failure_reasons=failure_reasons)
 
     return TranscriptionResult(context_id=context_id,
