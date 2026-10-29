@@ -9,14 +9,14 @@ to deploy and run inside a kubernetes cluster similar to:
 ## Transcriptions agent
 
 Transcribes handwritten or printed pages into text with a self-hosted vision LLM.
-Upload a zip of photos, get back one text file — 70 pages in ~8 minutes instead of
+Upload a zip of photos, get back one text file — 70 pages in ~3 minutes instead of
 weeks by hand. Built with FastAPI, pydantic-ai, a fair Postgres-backed task queue,
 Garage S3 and llama-server, preferably running on Kubernetes.
 
 **Highlights**
 - [Fair task queue on PostgreSQL](#why-postgresql): `SKIP LOCKED` + per-user [longest idle scheduling](#licq-and-fifo-workers), no extra broker
 - [Exactly-once completion](#exactly-once-completion) across concurrent workers via advisory locks
-- [Measured](#performance): 70 handwritten pages in ~8 min on one GPU, app at ~0.005 CPU / ~300 MiB
+- [Measured](#performance): 70 handwritten pages in ~3 min on one GPU, ~150–350 MiB per pod
 
 
 ### C2 Diagram
@@ -67,7 +67,7 @@ sequenceDiagram
     break invalid or expired JWT
         API-->>User: 401
     end
-    API->>API: validate zip (≤100 images, ≤40 MiB each, real JPEG/PNG)
+    API->>API: validate zip (≤100 images, ≤40 MiB each, real JPEG/PNG/MPO)
     break invalid zip
         API-->>User: 400 (ZIP-01 / 02 / 03 / 04 / 05 / 06)
     end
@@ -222,12 +222,14 @@ takes to complete with retry, so no currently 'running' tasks are reclaimed`
 The image below shows the metrics of the transcriptions agent
 while running. The submitted zip file is 212 MiB,
 has 70 jpeg images taken with an iPhone 17 around 3-4 MiB each.
-It is done in ~ 8 minutes, each image taking 20-30 seconds depending
-on the image. 4 concurrent workers, 2 FIFO and 2 LICQ are running.
-![alt text](./nvidia_metrics_helper_app/metrics.png)
-- the GPU is saturated, and the bottleneck is prefill of ~4k image tokens per page, not the app
-- the app itself uses about 0.005 CPU cores and ~300 MiB per pod
-- about 9 images/min overall throughput
+Each page is downscaled with Pillow before transcription, which cuts the
+vision tokens per page and gives a >2x speedup.
+It is done in ~3 minutes, each image taking ~6-7 seconds.
+4 concurrent workers, 2 FIFO and 2 LICQ are running.
+![transcription agent metrics while running](./nvidia_metrics_helper_app/metrics.png)
+- the GPU is saturated, and the bottleneck is prefill of ~1.8k image tokens per page (down from ~4k before downscaling), not the app
+- the speedup's expense is memory and CPU: Pillow decodes each page into full-size raw pixels (much larger than the ~3-4 MiB compressed file) before downscaling, so CPU is higher and RAM spikes to ~350 MiB during concurrent decodes, then falls back to a ~150 MiB baseline
+- ~23 images/min for a single zip; with 5 contexts running at once (350 images) ~35 images/min, ~10 min total
 
 
 ### API
@@ -242,5 +244,5 @@ on the image. 4 concurrent workers, 2 FIFO and 2 LICQ are running.
 
 ### Future work
 rate limiting / quotas, Stripe, presigned garage downloads,
-alembic migrations, a retention job, image-downscaling,
+alembic migrations, a retention job,
 tests, completion_func failure to not fail all tasks.
