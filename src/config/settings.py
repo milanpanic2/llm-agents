@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     llm_model: str = "./Qwen3.6-35B-A3B-UD-IQ4_NL.gguf"
     llm_api_key: str = "local"
 
+    transcription_image_max_dim: int = 1536
+
     valkey_service_host: str = "http://localhost"
     valkey_service_port: int = 6379
 

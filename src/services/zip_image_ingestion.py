@@ -14,7 +14,9 @@ from src.errors import BadRequestError
 
 logger = logging.getLogger(__name__)
 
-_SUPPORTED_IMAGE_FORMATS = ["JPEG", "PNG"]
+# MPO is a JPEG container with extra embedded frames (iPhone HDR/portrait shots);
+# its primary frame is a normal JPEG, so we accept it and treat it as JPEG.
+_SUPPORTED_IMAGE_FORMATS = ["JPEG", "PNG", "MPO"]
 _MAX_IMAGES = 100  # TODO - gate per user/day after stripe integration (2eur = 100 images)
 _MAX_IMAGE_BYTES = 40 * 1024 * 1024
 
@@ -73,3 +75,11 @@ def _is_zipping_artifact(info: zipfile.ZipInfo) -> bool:
             or info.filename.startswith("__MACOSX/")
             or name == ".DS_Store"
             or name.startswith("._"))
+
+
+def _sniff_jpeg_png_media_type(data: bytes) -> str | None:
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    return None

@@ -9,7 +9,7 @@ from src.config import metrics
 from src.config.settings import settings
 from src.errors import AppError
 
-_FORMAT_TO_MEDIA_TYPE = {"JPEG": "image/jpeg", "PNG": "image/png"}
+_FORMAT_TO_MEDIA_TYPE = {"JPEG": "image/jpeg", "PNG": "image/png", "MPO": "image/jpeg"}
 
 IMAGE_TEXT_TO_TEXT_AGENT_INSTRUCTIONS = (
     "You are an image-to-text transcription agent."
