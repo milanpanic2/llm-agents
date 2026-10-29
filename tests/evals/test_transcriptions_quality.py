@@ -33,10 +33,10 @@ def test_transcriptions_output_text_punctuation_quality(key):
 
     total = sum(1 for c in expected_transcription if c in punct)
 
-    changed = {op.src_pos for op in Levenshtein.editops(expected_transcription, actual_transcription)
+    changed_positions = {op.src_pos for op in Levenshtein.editops(expected_transcription, actual_transcription)
                if op.tag in ("delete", "replace")}
-    kept = sum(1 for i, c in enumerate(expected_transcription) if c in punct and c not in changed)
-    
+    kept = sum(1 for i, c in enumerate(expected_transcription) if c in punct and i not in changed_positions)
+
     ratio = (kept / total) * 100
 
     print(f"{key}: {ratio}")
