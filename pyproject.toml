@@ -50,6 +50,12 @@ ignore = ["B008"]
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+markers = [
+    "eval: hits the local model; run locally, skipped in CI",
+]
+
 [dependency-groups]
 dev = [
     "ipykernel>=7.3.0",

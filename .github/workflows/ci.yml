@@ -25,6 +25,8 @@ jobs:
 
       - run: uv run pyright
 
+      - run: uv run pytest -m "not eval"
+
   build:
     needs: checks
     if: github.event_name == 'push'
