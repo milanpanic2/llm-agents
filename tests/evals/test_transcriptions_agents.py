@@ -28,7 +28,7 @@ async def _run_transcription_agent(truth, transcription_model):
             return key, value["image"], text
 
     results = await asyncio.gather(*[_run_one(key, value) for key, value in truth.items()])
-    
+
     return {key: {"image": image_name, "text": text} for key, image_name, text in results}
 
 
