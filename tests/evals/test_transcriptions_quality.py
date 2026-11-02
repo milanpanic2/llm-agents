@@ -35,7 +35,7 @@ def test_transcriptions_output_text_punctuation_quality(key):
     
     ops = Levenshtein.editops(expected_transcription, actual_transcription)
     changed_src = {op.src_pos for op in ops if op.tag in ("delete", "replace")}
-    added_dest = {op.src_pos for op in ops if op.tag in ("insert", "replace")}
+    added_dest = {op.dest_pos for op in ops if op.tag in ("insert", "replace")}
 
     kept = sum(1 for i, c in enumerate(expected_transcription) if c in punct and i not in changed_src)
     missing = sum(1 for i, c in enumerate(expected_transcription) if c in punct and i in changed_src)
