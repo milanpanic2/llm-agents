@@ -45,10 +45,10 @@ database:
 resources:
   requests:
     memory: "512Mi"
-    cpu: "50m"
+    cpu: "250m"
   limits:
     memory: "768Mi"
-    cpu: "250m"
+    cpu: "500m"
 
 probes:
   liveness:
